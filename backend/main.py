@@ -3,7 +3,7 @@ FastAPI backend for Flap AI Medical Chatbot
 Integrates with multiple AI providers: Grok (xAI), OpenAI GPT, and Google Gemini
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -17,12 +17,21 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Import authentication module
+from auth import initialize_firebase, get_current_user, get_optional_user
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Flap AI Medical Chatbot API",
     description="Backend API for medical chatbot using Grok AI",
     version="1.0.0"
 )
+
+# Initialize Firebase on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize Firebase Admin SDK on startup"""
+    initialize_firebase()
 
 # Configure CORS
 app.add_middleware(
@@ -243,10 +252,14 @@ async def health_check():
     }
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Main chat endpoint that processes user messages and returns AI responses
     Uses random provider selection
+    Requires authentication.
     """
     
     # Check if any provider is available
@@ -326,10 +339,14 @@ async def chat(request: ChatRequest):
         )
 
 @app.post("/api/chat/stream")
-async def chat_stream(request: ChatRequest):
+async def chat_stream(
+    request: ChatRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Streaming endpoint for real-time responses with Server-Sent Events
     Uses random provider selection
+    Requires authentication.
     """
     
     # Check if any provider is available

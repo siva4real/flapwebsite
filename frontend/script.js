@@ -281,10 +281,17 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
     try {
         console.log('Starting streaming request...');
         
+        // Get auth token
+        const token = await getAuthToken();
+        if (!token) {
+            throw new Error('Authentication required. Please sign in again.');
+        }
+        
         const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 message: userMessage,
@@ -427,10 +434,17 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
 // Fallback: Call backend API (non-streaming)
 const getAIResponse = async (userMessage) => {
     try {
+        // Get auth token
+        const token = await getAuthToken();
+        if (!token) {
+            throw new Error('Authentication required. Please sign in again.');
+        }
+        
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 message: userMessage,
