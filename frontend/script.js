@@ -96,6 +96,16 @@ const createTypingIndicator = () => {
     return messageDiv;
 };
 
+// API Configuration
+// Use empty string when using Docker Compose with Nginx (same origin)
+// Use 'http://localhost:8000' when running backend separately
+const API_BASE_URL = window.location.hostname === 'localhost' && window.location.port === '3000' 
+    ? 'http://localhost:8000'  // Development mode (separate servers)
+    : '';  // Production/Docker mode (Nginx proxy)
+
+// Conversation history
+let conversationHistory = [];
+
 // Hide welcome screen
 const hideWelcomeScreen = () => {
     if (welcomeScreen) {
@@ -103,35 +113,43 @@ const hideWelcomeScreen = () => {
     }
 };
 
-// Simulate AI response
-const simulateAIResponse = (userMessage) => {
-    const responses = {
-        "diabetes": "Diabetes is a chronic condition that affects how your body processes blood sugar (glucose). Common symptoms include increased thirst, frequent urination, extreme fatigue, blurred vision, and slow-healing wounds. There are two main types: Type 1 (autoimmune) and Type 2 (insulin resistance). Management typically involves blood sugar monitoring, medication, diet modifications, and regular exercise. It's important to work with a healthcare provider for proper diagnosis and treatment.",
+// Call backend API
+const getAIResponse = async (userMessage) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: userMessage,
+                conversation_history: conversationHistory
+            })
+        });
         
-        "cardiovascular": "Improving cardiovascular health involves several key lifestyle factors: 1) Regular aerobic exercise (150 minutes per week), 2) A heart-healthy diet rich in fruits, vegetables, whole grains, and lean proteins, 3) Maintaining a healthy weight, 4) Not smoking, 5) Managing stress, 6) Getting adequate sleep (7-9 hours), and 7) Regular health screenings. These habits help lower blood pressure, improve cholesterol levels, and reduce heart disease risk.",
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
         
-        "bacteria": "Bacteria and viruses are both microscopic organisms, but they differ significantly: Bacteria are single-celled organisms that can survive independently and reproduce on their own. Many bacteria are beneficial. Viruses are much smaller and require a host cell to reproduce. They hijack cells to replicate. Antibiotics work against bacteria but are ineffective against viruses. Viral infections often require supportive care or specific antiviral medications.",
+        const data = await response.json();
         
-        "nutrition": "A balanced diet includes: 1) Proteins (lean meats, fish, legumes, nuts) for tissue repair, 2) Carbohydrates (whole grains, fruits, vegetables) for energy, 3) Healthy fats (olive oil, avocados, fish) for hormone production, 4) Vitamins and minerals from varied colorful fruits and vegetables, 5) Adequate hydration. Aim for portion control, minimize processed foods, and eat regular meals. Individual needs vary based on age, activity level, and health conditions.",
+        if (!data.success) {
+            throw new Error(data.error || 'Unknown error occurred');
+        }
         
-        "default": "I'm Flap AI, your medical assistant. I can help you understand various health topics, symptoms, and general medical information. However, please remember that I'm not a substitute for professional medical advice. For specific health concerns, always consult with a qualified healthcare provider. How can I assist you with your medical questions today?"
-    };
-    
-    // Simple keyword matching for demo purposes
-    const lowerMessage = userMessage.toLowerCase();
-    let response = responses.default;
-    
-    if (lowerMessage.includes('diabetes') || lowerMessage.includes('symptom')) {
-        response = responses.diabetes;
-    } else if (lowerMessage.includes('cardiovascular') || lowerMessage.includes('heart') || lowerMessage.includes('health')) {
-        response = responses.cardiovascular;
-    } else if (lowerMessage.includes('bacteria') || lowerMessage.includes('virus')) {
-        response = responses.bacteria;
-    } else if (lowerMessage.includes('nutrition') || lowerMessage.includes('diet') || lowerMessage.includes('food')) {
-        response = responses.nutrition;
+        // Update conversation history
+        conversationHistory.push(
+            { role: 'user', content: userMessage },
+            { role: 'assistant', content: data.response }
+        );
+        
+        return data.response;
+    } catch (error) {
+        console.error('Error calling API:', error);
+        
+        // Return fallback error message
+        return `I apologize, but I'm having trouble connecting to the server right now. Please make sure the backend server is running at ${API_BASE_URL}. Error: ${error.message}`;
     }
-    
-    return response;
 };
 
 // Handle sending message
@@ -162,14 +180,13 @@ const sendMessage = async () => {
     // Disable send button
     sendButton.disabled = true;
     
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000));
+    // Get AI response from backend
+    const aiResponse = await getAIResponse(message);
     
     // Remove typing indicator
     typingIndicator.remove();
     
     // Add AI response
-    const aiResponse = simulateAIResponse(message);
     const aiMessage = createMessageElement(aiResponse, 'ai');
     chatMessages.appendChild(aiMessage);
     
@@ -194,6 +211,9 @@ messageInput.addEventListener('keydown', (e) => {
 themeToggle.addEventListener('click', toggleTheme);
 
 newChatBtn.addEventListener('click', () => {
+    // Clear conversation history
+    conversationHistory = [];
+    
     // Clear chat messages
     chatMessages.innerHTML = `
         <div class="welcome-screen" id="welcomeScreen">
