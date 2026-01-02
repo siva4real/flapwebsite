@@ -97,11 +97,7 @@ const createTypingIndicator = () => {
 };
 
 // API Configuration
-// Use empty string when using Docker Compose with Nginx (same origin)
-// Use 'http://localhost:8000' when running backend separately
-const API_BASE_URL = window.location.hostname === 'localhost' && window.location.port === '3000' 
-    ? 'http://localhost:8000'  // Development mode (separate servers)
-    : '';  // Production/Docker mode (Nginx proxy)
+const API_BASE_URL = 'https://flapwebsite.onrender.com';
 
 // Conversation history
 let conversationHistory = [];
