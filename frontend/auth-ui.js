@@ -53,15 +53,16 @@ function setupAuthUI() {
         const result = await sendMagicLink(email);
 
         if (result.success) {
-            successDiv.textContent = `✓ Magic link sent to ${email}! Check your inbox and click the link to sign in.`;
+            successDiv.textContent = 'Check your email for a sign-in link';
             successDiv.classList.add('active');
-            button.textContent = 'Resend Magic Link';
+            document.getElementById('emailInput').value = '';
+            button.textContent = 'Continue';
             button.disabled = false;
         } else {
             errorDiv.textContent = result.error;
             errorDiv.classList.add('active');
             button.disabled = false;
-            button.textContent = 'Send Magic Link';
+            button.textContent = 'Continue';
         }
     });
 

@@ -93,22 +93,35 @@ async def get_current_user(user_info: dict = Depends(verify_token)) -> dict:
     return user_info
 
 # Optional authentication - returns None if no token provided
-async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Security(security, auto_error=False)
-) -> Optional[dict]:
+from fastapi import Request
+
+async def get_optional_user(request: Request) -> Optional[dict]:
     """
     Optional authentication - allows requests with or without tokens
     
     Args:
-        credentials: Optional HTTP Bearer token
+        request: FastAPI request object
         
     Returns:
         dict or None: User information if token provided and valid, None otherwise
     """
-    if credentials is None:
+    # Try to get the Authorization header
+    auth_header = request.headers.get("Authorization")
+    
+    if not auth_header or not auth_header.startswith("Bearer "):
         return None
     
     try:
-        return await verify_token(credentials)
-    except HTTPException:
+        # Extract token
+        token = auth_header.replace("Bearer ", "")
+        
+        # Verify the ID token
+        decoded_token = auth.verify_id_token(token)
+        return {
+            "uid": decoded_token.get("uid"),
+            "email": decoded_token.get("email"),
+            "name": decoded_token.get("name"),
+            "email_verified": decoded_token.get("email_verified", False)
+        }
+    except Exception:
         return None
