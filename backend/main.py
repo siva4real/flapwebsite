@@ -121,7 +121,7 @@ async def chat(request: ChatRequest):
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "grok-beta",  # Use the appropriate Grok model
+                    "model": "grok-3",  # Use the appropriate Grok model
                     "messages": messages,
                     "temperature": 0.7,
                     "max_tokens": 1000,
