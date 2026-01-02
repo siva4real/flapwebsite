@@ -426,6 +426,7 @@ async def chat_stream(request: ChatRequest):
                         yield f"data: {json.dumps(error_data)}\n\n"
                         return
                     
+                    previous_text = ""
                     async for line in response.aiter_lines():
                         if line.startswith("data: "):
                             data = line[6:]
@@ -433,9 +434,14 @@ async def chat_stream(request: ChatRequest):
                             try:
                                 chunk = json.loads(data)
                                 if "candidates" in chunk:
-                                    content = chunk["candidates"][0]["content"]["parts"][0].get("text", "")
-                                    if content:
-                                        yield f"data: {json.dumps({'content': content, 'done': False})}\n\n"
+                                    # Gemini sends cumulative text, so we need to get the delta
+                                    current_text = chunk["candidates"][0]["content"]["parts"][0].get("text", "")
+                                    if current_text and current_text != previous_text:
+                                        # Send only the new portion
+                                        delta_text = current_text[len(previous_text):]
+                                        if delta_text:
+                                            yield f"data: {json.dumps({'content': delta_text, 'done': False})}\n\n"
+                                        previous_text = current_text
                                 
                                 # Check if done
                                 if chunk.get("candidates", [{}])[0].get("finishReason"):

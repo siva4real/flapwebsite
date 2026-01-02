@@ -330,8 +330,17 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                         // Capture provider info
                         if (parsed.provider) {
                             provider = parsed.provider;
-                            // Add provider badge
+                            // Add provider badge and remove typing indicator
                             const contentDiv = messageElement.querySelector('.message-content');
+                            const mainContent = contentDiv.querySelector('.main-content');
+                            
+                            // Remove typing indicator
+                            const typingIndicator = mainContent.querySelector('.typing-indicator');
+                            if (typingIndicator) {
+                                typingIndicator.remove();
+                            }
+                            
+                            // Add provider badge
                             const providerBadge = document.createElement('div');
                             providerBadge.className = 'provider-badge';
                             const providerNames = {
