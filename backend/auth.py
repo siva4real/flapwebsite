@@ -4,7 +4,7 @@ Handles token verification and user authentication
 """
 
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials, auth, firestore
 from fastapi import HTTPException, Security, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
@@ -36,6 +36,15 @@ def initialize_firebase():
         except Exception as e:
             print(f"ERROR: Failed to initialize Firebase: {e}")
             return False
+
+# Get Firestore client
+def get_firestore_client():
+    """Get Firestore client instance"""
+    try:
+        return firestore.client()
+    except Exception as e:
+        print(f"ERROR: Failed to get Firestore client: {e}")
+        return None
 
 # Security scheme
 security = HTTPBearer()

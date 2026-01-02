@@ -61,9 +61,31 @@
 
     <!-- Main Chat Container (hidden by default) -->
     <div class="container" id="mainContainer" style="display: none;">
+        <!-- Sidebar for conversation history -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3 class="sidebar-title">Conversations</h3>
+                <button class="icon-button" id="newConversationBtn" aria-label="New conversation" title="New conversation">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="conversations-list" id="conversationsList">
+                <!-- Conversations will be loaded here -->
+            </div>
+        </aside>
+
+        <!-- Main content area -->
+        <div class="main-content">
         <!-- Header -->
         <header class="header">
             <div class="header-content">
+                <button class="icon-button mobile-only" id="toggleSidebar" aria-label="Toggle sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
                 <div class="logo">
                     <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -93,7 +115,7 @@
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
-                    <button class="icon-button" id="newChatBtn" aria-label="New chat">
+                    <button class="icon-button desktop-only" id="newChatBtn" aria-label="New chat">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>
@@ -166,6 +188,7 @@
             </div>
             <p class="disclaimer">Flap AI can make mistakes. Consider checking important information.</p>
         </footer>
+        </div>
     </div>
 
     <!-- Firebase SDK -->
@@ -188,6 +211,7 @@
     <!-- App Scripts -->
     <script src="firebase-auth.js"></script>
     <script src="auth-ui.js"></script>
+    <script src="chat-history.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

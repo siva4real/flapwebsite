@@ -13,12 +13,13 @@ import os
 import json
 import random
 from dotenv import load_dotenv
+from datetime import datetime
 
 # Load environment variables
 load_dotenv()
 
 # Import authentication module
-from auth import initialize_firebase, get_current_user, get_optional_user
+from auth import initialize_firebase, get_current_user, get_optional_user, get_firestore_client
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -68,6 +69,7 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     conversation_history: Optional[List[Message]] = []
+    conversation_id: Optional[str] = None  # To continue existing conversation
 
 class ChatResponse(BaseModel):
     response: str
@@ -75,6 +77,14 @@ class ChatResponse(BaseModel):
     error: Optional[str] = None
     reasoning: Optional[str] = None
     provider: Optional[str] = None  # Which AI provider was used
+    conversation_id: Optional[str] = None  # Return conversation ID
+
+class ConversationSummary(BaseModel):
+    id: str
+    title: str
+    last_message: str
+    timestamp: str
+    message_count: int
 
 # System prompt for medical chatbot
 SYSTEM_PROMPT = """You are Flap AI, an expert medical assistant chatbot. Your role is to provide highly technical and accurate medical information to experts. 
@@ -228,6 +238,77 @@ def select_random_provider():
         raise HTTPException(status_code=500, detail="No AI providers configured")
     return random.choice(PROVIDERS)
 
+# Helper functions for chat history
+def save_message_to_history(user_id: str, conversation_id: str, role: str, content: str, provider: Optional[str] = None):
+    """Save a message to Firestore chat history"""
+    try:
+        db = get_firestore_client()
+        if not db:
+            return False
+        
+        message_data = {
+            "role": role,
+            "content": content,
+            "timestamp": datetime.utcnow().isoformat(),
+            "provider": provider
+        }
+        
+        # Add message to conversation's messages subcollection
+        db.collection("users").document(user_id).collection("conversations").document(conversation_id).collection("messages").add(message_data)
+        
+        # Update conversation metadata
+        conversation_ref = db.collection("users").document(user_id).collection("conversations").document(conversation_id)
+        conversation_ref.set({
+            "last_message": content[:100],  # First 100 chars
+            "last_updated": datetime.utcnow().isoformat(),
+            "message_count": firestore.Increment(1)
+        }, merge=True)
+        
+        return True
+    except Exception as e:
+        print(f"Error saving message to history: {e}")
+        return False
+
+def create_conversation(user_id: str, first_message: str) -> Optional[str]:
+    """Create a new conversation and return its ID"""
+    try:
+        db = get_firestore_client()
+        if not db:
+            return None
+        
+        # Generate title from first message (first 50 chars)
+        title = first_message[:50] + "..." if len(first_message) > 50 else first_message
+        
+        conversation_data = {
+            "title": title,
+            "created_at": datetime.utcnow().isoformat(),
+            "last_updated": datetime.utcnow().isoformat(),
+            "last_message": first_message[:100],
+            "message_count": 0
+        }
+        
+        # Create conversation document
+        doc_ref = db.collection("users").document(user_id).collection("conversations").add(conversation_data)
+        return doc_ref[1].id
+    except Exception as e:
+        print(f"Error creating conversation: {e}")
+        return None
+
+def get_conversation_history(user_id: str, conversation_id: str) -> List[dict]:
+    """Retrieve conversation history from Firestore"""
+    try:
+        db = get_firestore_client()
+        if not db:
+            return []
+        
+        messages_ref = db.collection("users").document(user_id).collection("conversations").document(conversation_id).collection("messages")
+        messages = messages_ref.order_by("timestamp").stream()
+        
+        return [{"role": msg.get("role"), "content": msg.get("content")} for msg in messages]
+    except Exception as e:
+        print(f"Error retrieving conversation history: {e}")
+        return []
+
 @app.get("/")
 async def root():
     """Health check endpoint"""
@@ -260,6 +341,7 @@ async def chat(
     Main chat endpoint that processes user messages and returns AI responses
     Uses random provider selection
     Requires authentication.
+    Saves chat history to Firestore.
     """
     
     # Check if any provider is available
@@ -271,6 +353,11 @@ async def chat(
     
     # Select random provider
     provider = select_random_provider()
+    
+    # Get or create conversation ID
+    conversation_id = request.conversation_id
+    if not conversation_id:
+        conversation_id = create_conversation(current_user["uid"], request.message)
     
     try:
         # Build messages array
@@ -291,6 +378,10 @@ async def chat(
             "content": request.message
         })
         
+        # Save user message to history
+        if conversation_id:
+            save_message_to_history(current_user["uid"], conversation_id, "user", request.message)
+        
         # Call the selected provider
         if provider == "grok":
             result = await call_grok(messages, stream=False)
@@ -309,11 +400,16 @@ async def chat(
             ai_message = result["candidates"][0]["content"]["parts"][0]["text"]
             reasoning = None  # Gemini doesn't provide separate reasoning
         
+        # Save AI response to history
+        if conversation_id:
+            save_message_to_history(current_user["uid"], conversation_id, "assistant", ai_message, provider)
+        
         return ChatResponse(
             response=ai_message,
             success=True,
             reasoning=reasoning,
-            provider=provider
+            provider=provider,
+            conversation_id=conversation_id
         )
     
     except httpx.TimeoutException:
@@ -321,21 +417,24 @@ async def chat(
             response="",
             success=False,
             error="Request timeout. Please try again.",
-            provider=provider
+            provider=provider,
+            conversation_id=conversation_id
         )
     except httpx.RequestError as e:
         return ChatResponse(
             response="",
             success=False,
             error=f"Network error: {str(e)}",
-            provider=provider
+            provider=provider,
+            conversation_id=conversation_id
         )
     except Exception as e:
         return ChatResponse(
             response="",
             success=False,
             error=f"An error occurred: {str(e)}",
-            provider=provider
+            provider=provider,
+            conversation_id=conversation_id
         )
 
 @app.post("/api/chat/stream")
@@ -358,6 +457,15 @@ async def chat_stream(
     
     # Select random provider
     provider = select_random_provider()
+    
+    # Get or create conversation ID
+    conversation_id = request.conversation_id
+    if not conversation_id:
+        conversation_id = create_conversation(current_user["uid"], request.message)
+    
+    # Save user message to history
+    if conversation_id:
+        save_message_to_history(current_user["uid"], conversation_id, "user", request.message)
     
     # Build messages array
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -390,8 +498,10 @@ async def chat_stream(
                 })
     
     async def generate():
-        # Send provider info first
-        yield f"data: {json.dumps({'provider': provider, 'done': False})}\n\n"
+        # Send provider and conversation info first
+        yield f"data: {json.dumps({'provider': provider, 'conversation_id': conversation_id, 'done': False})}\n\n"
+        
+        full_response = ""
         
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
@@ -517,6 +627,10 @@ async def chat_stream(
                                 
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+        
+        # Save AI response to history after streaming completes
+        if conversation_id and full_response:
+            save_message_to_history(current_user["uid"], conversation_id, "assistant", full_response, provider)
     
     return StreamingResponse(
         generate(),
@@ -527,6 +641,71 @@ async def chat_stream(
             "X-Accel-Buffering": "no"
         }
     )
+
+@app.get("/api/conversations")
+async def get_conversations(current_user: dict = Depends(get_current_user)):
+    """Get all conversations for the current user"""
+    try:
+        db = get_firestore_client()
+        if not db:
+            return {"conversations": []}
+        
+        conversations_ref = db.collection("users").document(current_user["uid"]).collection("conversations")
+        conversations = conversations_ref.order_by("last_updated", direction=firestore.Query.DESCENDING).limit(50).stream()
+        
+        result = []
+        for conv in conversations:
+            data = conv.to_dict()
+            result.append({
+                "id": conv.id,
+                "title": data.get("title", "New Conversation"),
+                "last_message": data.get("last_message", ""),
+                "timestamp": data.get("last_updated", ""),
+                "message_count": data.get("message_count", 0)
+            })
+        
+        return {"conversations": result}
+    except Exception as e:
+        print(f"Error retrieving conversations: {e}")
+        return {"conversations": []}
+
+@app.get("/api/conversations/{conversation_id}")
+async def get_conversation_messages(
+    conversation_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all messages in a conversation"""
+    try:
+        messages = get_conversation_history(current_user["uid"], conversation_id)
+        return {"messages": messages, "conversation_id": conversation_id}
+    except Exception as e:
+        print(f"Error retrieving conversation messages: {e}")
+        return {"messages": [], "conversation_id": conversation_id}
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a conversation"""
+    try:
+        db = get_firestore_client()
+        if not db:
+            return {"success": False, "message": "Database not available"}
+        
+        # Delete all messages in the conversation
+        messages_ref = db.collection("users").document(current_user["uid"]).collection("conversations").document(conversation_id).collection("messages")
+        messages = messages_ref.stream()
+        for msg in messages:
+            msg.reference.delete()
+        
+        # Delete the conversation document
+        db.collection("users").document(current_user["uid"]).collection("conversations").document(conversation_id).delete()
+        
+        return {"success": True, "message": "Conversation deleted"}
+    except Exception as e:
+        print(f"Error deleting conversation: {e}")
+        return {"success": False, "message": str(e)}
 
 if __name__ == "__main__":
     import uvicorn

@@ -170,6 +170,11 @@ function showChatInterface() {
             userEmail.textContent = currentUser.email;
         }
     }
+    
+    // Initialize chat history
+    if (typeof initializeChatHistory === 'function') {
+        initializeChatHistory();
+    }
 }
 
 // Check if user is authenticated
