@@ -342,136 +342,164 @@ async def chat_stream(request: ChatRequest):
     # Select random provider
     provider = select_random_provider()
     
+    # Build messages array
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    
+    if request.conversation_history:
+        messages.extend([
+            {"role": msg.role, "content": msg.content}
+            for msg in request.conversation_history
+        ])
+    
+    messages.append({
+        "role": "user",
+        "content": request.message
+    })
+    
+    # Convert messages to Gemini format if needed
+    gemini_contents = []
+    if provider == "gemini":
+        for msg in messages:
+            if msg["role"] == "system":
+                gemini_contents.append({
+                    "role": "user",
+                    "parts": [{"text": f"System instructions: {msg['content']}"}]
+                })
+            else:
+                role = "user" if msg["role"] == "user" else "model"
+                gemini_contents.append({
+                    "role": role,
+                    "parts": [{"text": msg["content"]}]
+                })
+    
     async def generate():
-        client = None
+        # Send provider info first
+        yield f"data: {json.dumps({'provider': provider, 'done': False})}\n\n"
+        
         try:
-            # Build messages array
-            messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-            
-            if request.conversation_history:
-                messages.extend([
-                    {"role": msg.role, "content": msg.content}
-                    for msg in request.conversation_history
-                ])
-            
-            messages.append({
-                "role": "user",
-                "content": request.message
-            })
-            
-            # Send provider info
-            yield f"data: {json.dumps({'provider': provider, 'done': False})}\n\n"
-            
-            # Call the selected provider with streaming
-            if provider == "grok":
-                stream_context = await call_grok(messages, stream=True)
-                async with stream_context as response:
-                    client = stream_context.__self__  # Get the client from context manager
-                    if response.status_code != 200:
-                        error_data = {"error": f"API error: {response.status_code}", "done": True}
-                        yield f"data: {json.dumps(error_data)}\n\n"
-                        return
-                    
-                    reasoning_content = ""
-                    message_content = ""
-                    
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            data = line[6:]
-                            if data == "[DONE]":
-                                final_data = {
-                                    "content": "",
-                                    "reasoning": reasoning_content if reasoning_content else None,
-                                    "done": True
-                                }
-                                yield f"data: {json.dumps(final_data)}\n\n"
-                                break
-                            
-                            try:
-                                chunk = json.loads(data)
-                                delta = chunk.get("choices", [{}])[0].get("delta", {})
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                if provider == "grok":
+                    async with client.stream(
+                        "POST",
+                        GROK_API_URL,
+                        headers={
+                            "Authorization": f"Bearer {GROK_API_KEY}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "grok-3",
+                            "messages": messages,
+                            "temperature": 0.7,
+                            "max_tokens": 2000,
+                            "stream": True
+                        }
+                    ) as response:
+                        if response.status_code != 200:
+                            yield f"data: {json.dumps({'error': f'API error: {response.status_code}', 'done': True})}\n\n"
+                            return
+                        
+                        reasoning_content = ""
+                        
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: "):
+                                data = line[6:]
+                                if data == "[DONE]":
+                                    yield f"data: {json.dumps({'reasoning': reasoning_content if reasoning_content else None, 'done': True})}\n\n"
+                                    break
                                 
-                                if "reasoning" in delta and delta["reasoning"]:
-                                    reasoning_content += delta["reasoning"]
-                                    yield f"data: {json.dumps({'reasoning': delta['reasoning'], 'done': False})}\n\n"
-                                
-                                if "content" in delta and delta["content"]:
-                                    message_content += delta["content"]
-                                    yield f"data: {json.dumps({'content': delta['content'], 'done': False})}\n\n"
+                                try:
+                                    chunk = json.loads(data)
+                                    delta = chunk.get("choices", [{}])[0].get("delta", {})
                                     
-                            except json.JSONDecodeError:
-                                continue
-            
-            elif provider == "openai":
-                stream_context = await call_openai(messages, stream=True)
-                async with stream_context as response:
-                    client = stream_context.__self__
-                    if response.status_code != 200:
-                        error_data = {"error": f"API error: {response.status_code}", "done": True}
-                        yield f"data: {json.dumps(error_data)}\n\n"
-                        return
-                    
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            data = line[6:]
-                            if data == "[DONE]":
-                                yield f"data: {json.dumps({'done': True})}\n\n"
-                                break
-                            
-                            try:
-                                chunk = json.loads(data)
-                                delta = chunk.get("choices", [{}])[0].get("delta", {})
-                                
-                                if "content" in delta and delta["content"]:
-                                    yield f"data: {json.dumps({'content': delta['content'], 'done': False})}\n\n"
+                                    if "reasoning" in delta and delta["reasoning"]:
+                                        reasoning_content += delta["reasoning"]
+                                        yield f"data: {json.dumps({'reasoning': delta['reasoning'], 'done': False})}\n\n"
                                     
-                            except json.JSONDecodeError:
-                                continue
-            
-            elif provider == "gemini":
-                stream_context = await call_gemini(messages, stream=True)
-                async with stream_context as response:
-                    client = stream_context.__self__
-                    if response.status_code != 200:
-                        error_data = {"error": f"API error: {response.status_code}", "done": True}
-                        yield f"data: {json.dumps(error_data)}\n\n"
-                        return
-                    
-                    previous_text = ""
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            data = line[6:]
-                            
-                            try:
-                                chunk = json.loads(data)
-                                if "candidates" in chunk:
-                                    # Gemini sends cumulative text, so we need to get the delta
-                                    current_text = chunk["candidates"][0]["content"]["parts"][0].get("text", "")
-                                    if current_text and current_text != previous_text:
-                                        # Send only the new portion
-                                        delta_text = current_text[len(previous_text):]
-                                        if delta_text:
-                                            yield f"data: {json.dumps({'content': delta_text, 'done': False})}\n\n"
-                                        previous_text = current_text
-                                
-                                # Check if done
-                                if chunk.get("candidates", [{}])[0].get("finishReason"):
+                                    if "content" in delta and delta["content"]:
+                                        yield f"data: {json.dumps({'content': delta['content'], 'done': False})}\n\n"
+                                        
+                                except json.JSONDecodeError:
+                                    continue
+                
+                elif provider == "openai":
+                    async with client.stream(
+                        "POST",
+                        OPENAI_API_URL,
+                        headers={
+                            "Authorization": f"Bearer {OPENAI_API_KEY}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "gpt-4o",
+                            "messages": messages,
+                            "temperature": 0.7,
+                            "max_tokens": 2000,
+                            "stream": True
+                        }
+                    ) as response:
+                        if response.status_code != 200:
+                            yield f"data: {json.dumps({'error': f'API error: {response.status_code}', 'done': True})}\n\n"
+                            return
+                        
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: "):
+                                data = line[6:]
+                                if data == "[DONE]":
                                     yield f"data: {json.dumps({'done': True})}\n\n"
                                     break
+                                
+                                try:
+                                    chunk = json.loads(data)
+                                    delta = chunk.get("choices", [{}])[0].get("delta", {})
                                     
-                            except json.JSONDecodeError:
-                                continue
+                                    if "content" in delta and delta["content"]:
+                                        yield f"data: {json.dumps({'content': delta['content'], 'done': False})}\n\n"
+                                        
+                                except json.JSONDecodeError:
+                                    continue
+                
+                elif provider == "gemini":
+                    url = f"{GEMINI_API_URL}?alt=sse&key={GEMINI_API_KEY}"
+                    async with client.stream(
+                        "POST",
+                        url,
+                        headers={"Content-Type": "application/json"},
+                        json={
+                            "contents": gemini_contents,
+                            "generationConfig": {
+                                "temperature": 0.7,
+                                "maxOutputTokens": 2000,
+                            }
+                        }
+                    ) as response:
+                        if response.status_code != 200:
+                            yield f"data: {json.dumps({'error': f'API error: {response.status_code}', 'done': True})}\n\n"
+                            return
+                        
+                        previous_text = ""
+                        async for line in response.aiter_lines():
+                            if line.startswith("data: "):
+                                data = line[6:]
+                                
+                                try:
+                                    chunk = json.loads(data)
+                                    if "candidates" in chunk:
+                                        current_text = chunk["candidates"][0]["content"]["parts"][0].get("text", "")
+                                        if current_text and current_text != previous_text:
+                                            delta_text = current_text[len(previous_text):]
+                                            if delta_text:
+                                                yield f"data: {json.dumps({'content': delta_text, 'done': False})}\n\n"
+                                            previous_text = current_text
+                                    
+                                    if chunk.get("candidates", [{}])[0].get("finishReason"):
+                                        yield f"data: {json.dumps({'done': True})}\n\n"
+                                        break
+                                        
+                                except json.JSONDecodeError:
+                                    continue
                                 
         except Exception as e:
-            error_data = {
-                "error": str(e),
-                "done": True
-            }
-            yield f"data: {json.dumps(error_data)}\n\n"
-        finally:
-            # Make sure to close the client
-            if client:
-                await client.aclose()
+            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
     
     return StreamingResponse(
         generate(),
