@@ -279,6 +279,8 @@ const hideWelcomeScreen = () => {
 // Call backend API with streaming
 const getAIResponseStreaming = async (userMessage, messageElement) => {
     try {
+        console.log('Starting streaming request...');
+        
         const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
             method: 'POST',
             headers: {
@@ -291,8 +293,11 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
         });
         
         if (!response.ok) {
+            console.error('HTTP error:', response.status);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        console.log('Stream response received');
         
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -301,6 +306,7 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
         let fullReasoning = '';
         let provider = null;
         let buffer = '';
+        let hasContent = false;
         
         while (true) {
             const { value, done } = await reader.read();
@@ -317,8 +323,10 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                     
                     try {
                         const parsed = JSON.parse(data);
+                        console.log('SSE data:', parsed);
                         
                         if (parsed.error) {
+                            console.error('Stream error:', parsed.error);
                             throw new Error(parsed.error);
                         }
                         
@@ -330,6 +338,8 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                         // Capture provider info
                         if (parsed.provider) {
                             provider = parsed.provider;
+                            console.log('Provider received:', provider);
+                            
                             // Add provider badge and remove typing indicator
                             const contentDiv = messageElement.querySelector('.message-content');
                             const mainContent = contentDiv.querySelector('.main-content');
@@ -338,6 +348,7 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                             const typingIndicator = mainContent.querySelector('.typing-indicator');
                             if (typingIndicator) {
                                 typingIndicator.remove();
+                                console.log('Typing indicator removed');
                             }
                             
                             // Add provider badge
@@ -354,7 +365,9 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                         
                         // Update content
                         if (parsed.content) {
+                            hasContent = true;
                             fullResponse += parsed.content;
+                            console.log('Content chunk received, total length:', fullResponse.length);
                             
                             // Update the message element in real-time
                             const contentDiv = messageElement.querySelector('.main-content');
@@ -368,10 +381,11 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                         
                         // Done
                         if (parsed.done) {
+                            console.log('Stream done, final content length:', fullResponse.length);
                             break;
                         }
                     } catch (e) {
-                        console.error('Error parsing SSE data:', e);
+                        console.error('Error parsing SSE data:', e, 'Raw data:', data);
                     }
                 }
             }

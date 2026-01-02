@@ -82,24 +82,26 @@ You have to be very precise and concise in your responses.
 
 async def call_grok(messages: list, stream: bool = False):
     """Call Grok API"""
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        if stream:
-            return client.stream(
-                "POST",
-                GROK_API_URL,
-                headers={
-                    "Authorization": f"Bearer {GROK_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "grok-3",
-                    "messages": messages,
-                    "temperature": 0.7,
-                    "max_tokens": 2000,
-                    "stream": True
-                }
-            )
-        else:
+    if stream:
+        # Return the stream context manager itself, don't use async with here
+        client = httpx.AsyncClient(timeout=60.0)
+        return client.stream(
+            "POST",
+            GROK_API_URL,
+            headers={
+                "Authorization": f"Bearer {GROK_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "grok-3",
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2000,
+                "stream": True
+            }
+        )
+    else:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 GROK_API_URL,
                 headers={
@@ -121,24 +123,25 @@ async def call_grok(messages: list, stream: bool = False):
 
 async def call_openai(messages: list, stream: bool = False):
     """Call OpenAI GPT API"""
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        if stream:
-            return client.stream(
-                "POST",
-                OPENAI_API_URL,
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": "gpt-4o",
-                    "messages": messages,
-                    "temperature": 0.7,
-                    "max_tokens": 2000,
-                    "stream": True
-                }
-            )
-        else:
+    if stream:
+        client = httpx.AsyncClient(timeout=60.0)
+        return client.stream(
+            "POST",
+            OPENAI_API_URL,
+            headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "gpt-4o",
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2000,
+                "stream": True
+            }
+        )
+    else:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 OPENAI_API_URL,
                 headers={
@@ -176,23 +179,24 @@ async def call_gemini(messages: list, stream: bool = False):
                 "parts": [{"text": msg["content"]}]
             })
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        url = f"{GEMINI_API_URL}{'?alt=sse' if stream else ''}{'&' if stream else '?'}key={GEMINI_API_KEY}"
-        
-        if stream:
-            return client.stream(
-                "POST",
-                url,
-                headers={"Content-Type": "application/json"},
-                json={
-                    "contents": contents,
-                    "generationConfig": {
-                        "temperature": 0.7,
-                        "maxOutputTokens": 2000,
-                    }
+    url = f"{GEMINI_API_URL}{'?alt=sse' if stream else ''}{'&' if stream else '?'}key={GEMINI_API_KEY}"
+    
+    if stream:
+        client = httpx.AsyncClient(timeout=60.0)
+        return client.stream(
+            "POST",
+            url,
+            headers={"Content-Type": "application/json"},
+            json={
+                "contents": contents,
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 2000,
                 }
-            )
-        else:
+            }
+        )
+    else:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 url,
                 headers={"Content-Type": "application/json"},
@@ -339,6 +343,7 @@ async def chat_stream(request: ChatRequest):
     provider = select_random_provider()
     
     async def generate():
+        client = None
         try:
             # Build messages array
             messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -359,7 +364,9 @@ async def chat_stream(request: ChatRequest):
             
             # Call the selected provider with streaming
             if provider == "grok":
-                async with await call_grok(messages, stream=True) as response:
+                stream_context = await call_grok(messages, stream=True)
+                async with stream_context as response:
+                    client = stream_context.__self__  # Get the client from context manager
                     if response.status_code != 200:
                         error_data = {"error": f"API error: {response.status_code}", "done": True}
                         yield f"data: {json.dumps(error_data)}\n\n"
@@ -396,7 +403,9 @@ async def chat_stream(request: ChatRequest):
                                 continue
             
             elif provider == "openai":
-                async with await call_openai(messages, stream=True) as response:
+                stream_context = await call_openai(messages, stream=True)
+                async with stream_context as response:
+                    client = stream_context.__self__
                     if response.status_code != 200:
                         error_data = {"error": f"API error: {response.status_code}", "done": True}
                         yield f"data: {json.dumps(error_data)}\n\n"
@@ -420,7 +429,9 @@ async def chat_stream(request: ChatRequest):
                                 continue
             
             elif provider == "gemini":
-                async with await call_gemini(messages, stream=True) as response:
+                stream_context = await call_gemini(messages, stream=True)
+                async with stream_context as response:
+                    client = stream_context.__self__
                     if response.status_code != 200:
                         error_data = {"error": f"API error: {response.status_code}", "done": True}
                         yield f"data: {json.dumps(error_data)}\n\n"
@@ -457,6 +468,10 @@ async def chat_stream(request: ChatRequest):
                 "done": True
             }
             yield f"data: {json.dumps(error_data)}\n\n"
+        finally:
+            # Make sure to close the client
+            if client:
+                await client.aclose()
     
     return StreamingResponse(
         generate(),
