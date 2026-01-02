@@ -27,8 +27,134 @@ const autoResizeTextarea = () => {
 
 messageInput.addEventListener('input', autoResizeTextarea);
 
-// Create message element
-const createMessageElement = (content, type = 'user') => {
+// Format markdown-style text to HTML
+const formatText = (text) => {
+    // Escape HTML to prevent XSS
+    const escapeHtml = (str) => {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    };
+    
+    // Split into lines for processing
+    let lines = text.split('\n');
+    let html = '';
+    let inList = false;
+    let inCodeBlock = false;
+    let codeBlockContent = '';
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        
+        // Code blocks (```)
+        if (line.trim().startsWith('```')) {
+            if (!inCodeBlock) {
+                inCodeBlock = true;
+                codeBlockContent = '';
+                continue;
+            } else {
+                inCodeBlock = false;
+                html += `<pre><code>${escapeHtml(codeBlockContent)}</code></pre>`;
+                codeBlockContent = '';
+                continue;
+            }
+        }
+        
+        if (inCodeBlock) {
+            codeBlockContent += line + '\n';
+            continue;
+        }
+        
+        // Headers (###, ##, #)
+        if (line.match(/^#{1,3}\s/)) {
+            const level = line.match(/^#+/)[0].length;
+            const text = line.replace(/^#+\s/, '');
+            html += `<h${level + 2}>${escapeHtml(text)}</h${level + 2}>`;
+            continue;
+        }
+        
+        // Unordered lists (-, *, •)
+        if (line.match(/^\s*[-*•]\s/)) {
+            if (!inList) {
+                html += '<ul>';
+                inList = true;
+            }
+            const text = line.replace(/^\s*[-*•]\s/, '');
+            html += `<li>${formatInlineStyles(text)}</li>`;
+            continue;
+        }
+        
+        // Numbered lists (1., 2., etc)
+        if (line.match(/^\s*\d+\.\s/)) {
+            if (!inList) {
+                html += '<ol>';
+                inList = true;
+            }
+            const text = line.replace(/^\s*\d+\.\s/, '');
+            html += `<li>${formatInlineStyles(text)}</li>`;
+            continue;
+        }
+        
+        // Close list if we were in one
+        if (inList && !line.match(/^\s*[-*•\d]/)) {
+            html += inList === 'ul' ? '</ul>' : '</ol>';
+            inList = false;
+        }
+        
+        // Empty line = new paragraph
+        if (line.trim() === '') {
+            if (html && !html.endsWith('>')) {
+                html += '</p>';
+            }
+            continue;
+        }
+        
+        // Regular paragraph
+        if (!html.endsWith('>') || html.endsWith('</p>') || html.endsWith('</ul>') || html.endsWith('</ol>') || html.endsWith('</pre>')) {
+            html += '<p>';
+        }
+        html += formatInlineStyles(line) + ' ';
+    }
+    
+    // Close any open tags
+    if (inList) {
+        html += '</ul>';
+    }
+    if (html && !html.endsWith('>')) {
+        html += '</p>';
+    }
+    
+    return html;
+};
+
+// Format inline styles (bold, italic, code, links)
+const formatInlineStyles = (text) => {
+    // Escape HTML
+    const escapeHtml = (str) => {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    };
+    
+    // Bold **text** or __text__
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    
+    // Italic *text* or _text_
+    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    text = text.replace(/_(.+?)_/g, '<em>$1</em>');
+    
+    // Inline code `code`
+    text = text.replace(/`(.+?)`/g, '<code>$1</code>');
+    
+    // Links [text](url)
+    text = text.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+    
+    return text;
+};
+
+// Create message element with optional reasoning and provider
+const createMessageElement = (content, type = 'user', reasoning = null, provider = null) => {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
     
@@ -54,7 +180,48 @@ const createMessageElement = (content, type = 'user') => {
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    contentDiv.textContent = content;
+    
+    // Add provider badge if available
+    if (provider && type === 'ai') {
+        const providerBadge = document.createElement('div');
+        providerBadge.className = 'provider-badge';
+        const providerNames = {
+            'grok': '🤖 Grok',
+            'openai': '🧠 GPT',
+            'gemini': '✨ Gemini'
+        };
+        providerBadge.textContent = providerNames[provider] || provider;
+        contentDiv.appendChild(providerBadge);
+    }
+    
+    // Add reasoning section if available
+    if (reasoning && type === 'ai') {
+        const reasoningDiv = document.createElement('details');
+        reasoningDiv.className = 'reasoning-section';
+        const reasoningSummary = document.createElement('summary');
+        reasoningSummary.textContent = '🧠 Show Reasoning';
+        reasoningDiv.appendChild(reasoningSummary);
+        
+        const reasoningContent = document.createElement('div');
+        reasoningContent.className = 'reasoning-content';
+        reasoningContent.innerHTML = formatText(reasoning);
+        reasoningDiv.appendChild(reasoningContent);
+        
+        contentDiv.appendChild(reasoningDiv);
+    }
+    
+    // Add main content
+    const mainContent = document.createElement('div');
+    mainContent.className = 'main-content';
+    
+    // Format AI responses, keep user messages as plain text
+    if (type === 'ai') {
+        mainContent.innerHTML = formatText(content);
+    } else {
+        mainContent.textContent = content;
+    }
+    
+    contentDiv.appendChild(mainContent);
     
     messageDiv.appendChild(avatarDiv);
     messageDiv.appendChild(contentDiv);
@@ -109,7 +276,132 @@ const hideWelcomeScreen = () => {
     }
 };
 
-// Call backend API
+// Call backend API with streaming
+const getAIResponseStreaming = async (userMessage, messageElement) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: userMessage,
+                conversation_history: conversationHistory
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        let fullResponse = '';
+        let fullReasoning = '';
+        let provider = null;
+        let buffer = '';
+        
+        while (true) {
+            const { value, done } = await reader.read();
+            
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    
+                    try {
+                        const parsed = JSON.parse(data);
+                        
+                        if (parsed.error) {
+                            throw new Error(parsed.error);
+                        }
+                        
+                        // Update reasoning
+                        if (parsed.reasoning) {
+                            fullReasoning += parsed.reasoning;
+                        }
+                        
+                        // Capture provider info
+                        if (parsed.provider) {
+                            provider = parsed.provider;
+                            // Add provider badge
+                            const contentDiv = messageElement.querySelector('.message-content');
+                            const providerBadge = document.createElement('div');
+                            providerBadge.className = 'provider-badge';
+                            const providerNames = {
+                                'grok': '🤖 Grok',
+                                'openai': '🧠 GPT',
+                                'gemini': '✨ Gemini'
+                            };
+                            providerBadge.textContent = providerNames[provider] || provider;
+                            contentDiv.insertBefore(providerBadge, contentDiv.firstChild);
+                        }
+                        
+                        // Update content
+                        if (parsed.content) {
+                            fullResponse += parsed.content;
+                            
+                            // Update the message element in real-time
+                            const contentDiv = messageElement.querySelector('.main-content');
+                            if (contentDiv) {
+                                contentDiv.innerHTML = formatText(fullResponse);
+                            }
+                            
+                            // Auto-scroll
+                            chatMessages.scrollTop = chatMessages.scrollHeight;
+                        }
+                        
+                        // Done
+                        if (parsed.done) {
+                            break;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing SSE data:', e);
+                    }
+                }
+            }
+        }
+        
+        // Update conversation history
+        conversationHistory.push(
+            { role: 'user', content: userMessage },
+            { role: 'assistant', content: fullResponse }
+        );
+        
+        // Add reasoning section if available
+        if (fullReasoning) {
+            const contentDiv = messageElement.querySelector('.message-content');
+            const reasoningDiv = document.createElement('details');
+            reasoningDiv.className = 'reasoning-section';
+            const reasoningSummary = document.createElement('summary');
+            reasoningSummary.textContent = '🧠 Show Reasoning';
+            reasoningDiv.appendChild(reasoningSummary);
+            
+            const reasoningContent = document.createElement('div');
+            reasoningContent.className = 'reasoning-content';
+            reasoningContent.innerHTML = formatText(fullReasoning);
+            reasoningDiv.appendChild(reasoningContent);
+            
+            // Insert reasoning before main content
+            const mainContent = contentDiv.querySelector('.main-content');
+            contentDiv.insertBefore(reasoningDiv, mainContent);
+        }
+        
+        return fullResponse;
+        
+    } catch (error) {
+        console.error('Streaming error:', error);
+        throw error;
+    }
+};
+
+// Fallback: Call backend API (non-streaming)
 const getAIResponse = async (userMessage) => {
     try {
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
@@ -139,16 +431,25 @@ const getAIResponse = async (userMessage) => {
             { role: 'assistant', content: data.response }
         );
         
-        return data.response;
+        return {
+            response: data.response,
+            reasoning: data.reasoning,
+            provider: data.provider
+        };
+        
     } catch (error) {
         console.error('Error calling API:', error);
         
         // Return fallback error message
-        return `I apologize, but I'm having trouble connecting to the server right now. Please make sure the backend server is running at ${API_BASE_URL}. Error: ${error.message}`;
+        return {
+            response: `I apologize, but I'm having trouble connecting to the server right now. Please make sure the backend server is running at ${API_BASE_URL}. Error: ${error.message}`,
+            reasoning: null,
+            provider: null
+        };
     }
 };
 
-// Handle sending message
+// Handle sending message with streaming
 const sendMessage = async () => {
     const message = messageInput.value.trim();
     
@@ -168,23 +469,77 @@ const sendMessage = async () => {
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
-    // Show typing indicator
-    const typingIndicator = createTypingIndicator();
-    chatMessages.appendChild(typingIndicator);
+    // Create AI message element for streaming
+    const aiMessageDiv = document.createElement('div');
+    aiMessageDiv.className = 'message ai';
+    
+    const aiAvatarDiv = document.createElement('div');
+    aiAvatarDiv.className = 'message-avatar';
+    aiAvatarDiv.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    `;
+    
+    const aiContentDiv = document.createElement('div');
+    aiContentDiv.className = 'message-content';
+    
+    const mainContent = document.createElement('div');
+    mainContent.className = 'main-content';
+    mainContent.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+    
+    aiContentDiv.appendChild(mainContent);
+    aiMessageDiv.appendChild(aiAvatarDiv);
+    aiMessageDiv.appendChild(aiContentDiv);
+    chatMessages.appendChild(aiMessageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
     // Disable send button
     sendButton.disabled = true;
     
-    // Get AI response from backend
-    const aiResponse = await getAIResponse(message);
-    
-    // Remove typing indicator
-    typingIndicator.remove();
-    
-    // Add AI response
-    const aiMessage = createMessageElement(aiResponse, 'ai');
-    chatMessages.appendChild(aiMessage);
+    try {
+        // Try streaming first
+        await getAIResponseStreaming(message, aiMessageDiv);
+    } catch (error) {
+        console.warn('Streaming failed, falling back to non-streaming:', error);
+        
+        // Fallback to non-streaming
+        const result = await getAIResponse(message);
+        
+        // Remove typing indicator and update content
+        mainContent.innerHTML = formatText(result.response);
+        
+        // Add provider badge if available
+        if (result.provider) {
+            const providerBadge = document.createElement('div');
+            providerBadge.className = 'provider-badge';
+            const providerNames = {
+                'grok': '🤖 Grok',
+                'openai': '🧠 GPT',
+                'gemini': '✨ Gemini'
+            };
+            providerBadge.textContent = providerNames[result.provider] || result.provider;
+            aiContentDiv.insertBefore(providerBadge, aiContentDiv.firstChild);
+        }
+        
+        // Add reasoning if available
+        if (result.reasoning) {
+            const reasoningDiv = document.createElement('details');
+            reasoningDiv.className = 'reasoning-section';
+            const reasoningSummary = document.createElement('summary');
+            reasoningSummary.textContent = '🧠 Show Reasoning';
+            reasoningDiv.appendChild(reasoningSummary);
+            
+            const reasoningContent = document.createElement('div');
+            reasoningContent.className = 'reasoning-content';
+            reasoningContent.innerHTML = formatText(result.reasoning);
+            reasoningDiv.appendChild(reasoningContent);
+            
+            aiContentDiv.insertBefore(reasoningDiv, mainContent);
+        }
+    }
     
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
