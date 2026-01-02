@@ -1,7 +1,8 @@
 // Chat History Management
 // Handles loading, saving, and displaying conversation history
 
-let currentConversationId = null;
+// API Configuration (must match script.js)
+const API_BASE_URL = 'https://flapwebsite.onrender.com';
 
 // Load all conversations for the user
 async function loadConversations() {

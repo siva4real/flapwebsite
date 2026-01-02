@@ -268,7 +268,6 @@ const API_BASE_URL = 'https://flapwebsite.onrender.com';
 
 // Conversation history
 let conversationHistory = [];
-let currentConversationId = null;
 
 // Hide welcome screen
 const hideWelcomeScreen = () => {
