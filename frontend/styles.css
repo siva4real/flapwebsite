@@ -576,18 +576,6 @@ body {
 }
 
 /* Reasoning section styles */
-.provider-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    font-size: 0.75em;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin-bottom: 12px;
-}
-
 .reasoning-section {
     margin-bottom: 12px;
     padding: 12px;

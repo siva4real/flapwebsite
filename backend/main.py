@@ -22,6 +22,9 @@ load_dotenv()
 # Import authentication module
 from auth import initialize_firebase, get_current_user, get_optional_user, get_firestore_client
 
+# Import web search agent
+from web_search_agent import search_and_respond, search_and_respond_stream
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Flap AI Medical Chatbot API",
@@ -79,6 +82,20 @@ class ChatResponse(BaseModel):
     reasoning: Optional[str] = None
     provider: Optional[str] = None  # Which AI provider was used
     conversation_id: Optional[str] = None  # Return conversation ID
+
+class WebSearchChatRequest(BaseModel):
+    message: str
+    conversation_history: Optional[List[Message]] = []
+    conversation_id: Optional[str] = None
+    provider: Optional[str] = "openai"  # "openai" or "gemini" for web search
+
+class WebSearchChatResponse(BaseModel):
+    response: str
+    success: bool
+    error: Optional[str] = None
+    search_performed: Optional[bool] = False  # Whether web search was used
+    provider: Optional[str] = None
+    conversation_id: Optional[str] = None
 
 class ConversationSummary(BaseModel):
     id: str
@@ -710,6 +727,221 @@ async def delete_conversation(
     except Exception as e:
         print(f"Error deleting conversation: {e}")
         return {"success": False, "message": str(e)}
+
+
+# ============================================================================
+# Web Search Endpoints (LangChain + LangGraph + Bright Data)
+# ============================================================================
+
+@app.post("/api/chat/search", response_model=WebSearchChatResponse)
+async def chat_with_search(
+    request: WebSearchChatRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Chat endpoint with web search capabilities using LangChain, LangGraph, and Bright Data.
+    The AI will automatically search the web when it needs up-to-date information.
+    
+    Requires authentication.
+    Saves chat history to Firestore.
+    """
+    
+    # Get or create conversation ID
+    conversation_id = request.conversation_id
+    if not conversation_id:
+        conversation_id = create_conversation(current_user["uid"], request.message)
+    
+    try:
+        # Save user message to history
+        if conversation_id:
+            save_message_to_history(current_user["uid"], conversation_id, "user", request.message)
+        
+        # Build conversation history for the agent
+        history = []
+        if request.conversation_history:
+            history = [
+                {"role": msg.role, "content": msg.content}
+                for msg in request.conversation_history
+            ]
+        
+        # Call the web search agent
+        result = await search_and_respond(
+            message=request.message,
+            conversation_history=history,
+            provider=request.provider or "openai"
+        )
+        
+        # Save AI response to history
+        if conversation_id and result.get("success"):
+            save_message_to_history(
+                current_user["uid"],
+                conversation_id,
+                "assistant",
+                result["response"],
+                f"{result.get('provider', 'unknown')}_search"
+            )
+        
+        return WebSearchChatResponse(
+            response=result.get("response", ""),
+            success=result.get("success", False),
+            error=result.get("error"),
+            search_performed=result.get("search_performed", False),
+            provider=result.get("provider"),
+            conversation_id=conversation_id
+        )
+    
+    except Exception as e:
+        return WebSearchChatResponse(
+            response="",
+            success=False,
+            error=f"An error occurred: {str(e)}",
+            conversation_id=conversation_id
+        )
+
+
+@app.post("/api/chat/search/stream")
+async def chat_with_search_stream(
+    request: WebSearchChatRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Streaming chat endpoint with web search capabilities.
+    Uses Server-Sent Events (SSE) for real-time responses.
+    
+    The AI will automatically search the web when it needs up-to-date information,
+    and you'll see search progress in real-time.
+    """
+    
+    # Get or create conversation ID
+    conversation_id = request.conversation_id
+    if not conversation_id:
+        conversation_id = create_conversation(current_user["uid"], request.message)
+    
+    # Save user message to history
+    if conversation_id:
+        save_message_to_history(current_user["uid"], conversation_id, "user", request.message)
+    
+    # Build conversation history
+    history = []
+    if request.conversation_history:
+        history = [
+            {"role": msg.role, "content": msg.content}
+            for msg in request.conversation_history
+        ]
+    
+    async def generate():
+        # Send initial metadata
+        yield f"data: {json.dumps({'provider': request.provider, 'conversation_id': conversation_id, 'type': 'meta'})}\n\n"
+        
+        full_response = ""
+        search_performed = False
+        
+        try:
+            async for chunk in search_and_respond_stream(
+                message=request.message,
+                conversation_history=history,
+                provider=request.provider or "openai"
+            ):
+                chunk_type = chunk.get("type")
+                
+                if chunk_type == "content":
+                    content = chunk.get("data", "")
+                    full_response += content
+                    yield f"data: {json.dumps({'content': content, 'done': False})}\n\n"
+                
+                elif chunk_type == "tool_start":
+                    search_performed = True
+                    yield f"data: {json.dumps({'search_status': chunk.get('data'), 'done': False})}\n\n"
+                
+                elif chunk_type == "tool_end":
+                    yield f"data: {json.dumps({'search_status': chunk.get('data'), 'done': False})}\n\n"
+                
+                elif chunk_type == "done":
+                    search_performed = chunk.get("search_performed", search_performed)
+                    yield f"data: {json.dumps({'done': True, 'search_performed': search_performed})}\n\n"
+                
+                elif chunk_type == "error":
+                    yield f"data: {json.dumps({'error': chunk.get('data'), 'done': True})}\n\n"
+                    return
+        
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+            return
+        
+        # Save AI response to history after streaming completes
+        if conversation_id and full_response:
+            save_message_to_history(
+                current_user["uid"],
+                conversation_id,
+                "assistant",
+                full_response,
+                f"{request.provider or 'openai'}_search"
+            )
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
+@app.get("/api/search/health")
+async def search_health_check():
+    """Check if web search capabilities are available"""
+    import os
+    
+    openai_configured = bool(os.getenv("OPENAI_API_KEY"))
+    gemini_configured = bool(os.getenv("GEMINI_API_KEY"))
+    
+    # Check if required packages are available
+    langchain_available = False
+    langgraph_available = False
+    duckduckgo_available = False
+    
+    try:
+        import langchain
+        langchain_available = True
+    except ImportError:
+        pass
+    
+    try:
+        import langgraph
+        langgraph_available = True
+    except ImportError:
+        pass
+    
+    try:
+        from duckduckgo_search import DDGS
+        duckduckgo_available = True
+    except ImportError:
+        pass
+    
+    all_packages_ready = langchain_available and langgraph_available and duckduckgo_available
+    has_llm = openai_configured or gemini_configured
+    
+    return {
+        "status": "available" if (all_packages_ready and has_llm) else "limited",
+        "web_search": {
+            "engine": "DuckDuckGo",
+            "available": duckduckgo_available,
+            "requires_api_key": False
+        },
+        "llm_providers": {
+            "openai": openai_configured,
+            "gemini": gemini_configured
+        },
+        "packages": {
+            "langchain": langchain_available,
+            "langgraph": langgraph_available,
+            "duckduckgo_search": duckduckgo_available
+        },
+        "message": "Web search is fully operational" if (all_packages_ready and has_llm) else "Configure at least one LLM provider (OPENAI_API_KEY or GEMINI_API_KEY)"
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

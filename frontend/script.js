@@ -153,8 +153,8 @@ const formatInlineStyles = (text) => {
     return text;
 };
 
-// Create message element with optional reasoning and provider
-const createMessageElement = (content, type = 'user', reasoning = null, provider = null) => {
+// Create message element with optional reasoning
+const createMessageElement = (content, type = 'user', reasoning = null) => {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
     
@@ -180,19 +180,6 @@ const createMessageElement = (content, type = 'user', reasoning = null, provider
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    
-    // Add provider badge if available
-    if (provider && type === 'ai') {
-        const providerBadge = document.createElement('div');
-        providerBadge.className = 'provider-badge';
-        const providerNames = {
-            'grok': '🤖 Grok',
-            'openai': '🧠 GPT',
-            'gemini': '✨ Gemini'
-        };
-        providerBadge.textContent = providerNames[provider] || provider;
-        contentDiv.appendChild(providerBadge);
-    }
     
     // Add reasoning section if available
     if (reasoning && type === 'ai') {
@@ -348,27 +335,15 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                             provider = parsed.provider;
                             console.log('Provider received:', provider);
                             
-                            // Add provider badge and remove typing indicator
+                            // Remove typing indicator
                             const contentDiv = messageElement.querySelector('.message-content');
                             const mainContent = contentDiv.querySelector('.main-content');
                             
-                            // Remove typing indicator
                             const typingIndicator = mainContent.querySelector('.typing-indicator');
                             if (typingIndicator) {
                                 typingIndicator.remove();
                                 console.log('Typing indicator removed');
                             }
-                            
-                            // Add provider badge
-                            const providerBadge = document.createElement('div');
-                            providerBadge.className = 'provider-badge';
-                            const providerNames = {
-                                'grok': '🤖 Grok',
-                                'openai': '🧠 GPT',
-                                'gemini': '✨ Gemini'
-                            };
-                            providerBadge.textContent = providerNames[provider] || provider;
-                            contentDiv.insertBefore(providerBadge, contentDiv.firstChild);
                         }
                         
                         // Capture conversation ID
@@ -570,19 +545,6 @@ const sendMessage = async () => {
         
         // Remove typing indicator and update content
         mainContent.innerHTML = formatText(result.response);
-        
-        // Add provider badge if available
-        if (result.provider) {
-            const providerBadge = document.createElement('div');
-            providerBadge.className = 'provider-badge';
-            const providerNames = {
-                'grok': '🤖 Grok',
-                'openai': '🧠 GPT',
-                'gemini': '✨ Gemini'
-            };
-            providerBadge.textContent = providerNames[result.provider] || result.provider;
-            aiContentDiv.insertBefore(providerBadge, aiContentDiv.firstChild);
-        }
         
         // Add reasoning if available
         if (result.reasoning) {
