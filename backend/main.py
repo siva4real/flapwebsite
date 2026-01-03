@@ -14,6 +14,7 @@ import json
 import random
 from dotenv import load_dotenv
 from datetime import datetime
+from google.cloud import firestore
 
 # Load environment variables
 load_dotenv()
