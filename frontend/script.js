@@ -508,6 +508,13 @@ const sendMessage = async () => {
     
     if (!message) return;
     
+    // Check if user is authenticated
+    if (!isAuthenticated()) {
+        // Show auth modal
+        showAuthModal();
+        return;
+    }
+    
     // Hide welcome screen on first message
     hideWelcomeScreen();
     

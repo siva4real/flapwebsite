@@ -14,6 +14,21 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupAuthUI() {
+    // Header sign in button
+    document.getElementById('headerSignInBtn')?.addEventListener('click', () => {
+        showAuthModal();
+    });
+    
+    // Modal close button
+    document.getElementById('authModalClose')?.addEventListener('click', () => {
+        closeAuthModal();
+    });
+    
+    // Modal overlay click
+    document.getElementById('authModalOverlay')?.addEventListener('click', () => {
+        closeAuthModal();
+    });
+    
     // Tab switching
     const emailTab = document.getElementById('emailTab');
     const googleTab = document.getElementById('googleTab');

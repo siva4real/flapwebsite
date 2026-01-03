@@ -30,7 +30,7 @@ function handleAuthStateChange(user) {
     if (user) {
         currentUser = user;
         console.log('User signed in:', user.email);
-        showChatInterface();
+        updateUIForSignedIn();
         
         // Store user token for API calls
         user.getIdToken().then(token => {
@@ -39,19 +39,70 @@ function handleAuthStateChange(user) {
     } else {
         currentUser = null;
         console.log('User signed out');
-        showAuthInterface();
+        updateUIForSignedOut();
         localStorage.removeItem('authToken');
     }
 }
 
-// Show auth interface
-function showAuthInterface() {
-    const authContainer = document.getElementById('authContainer');
-    const chatContainer = document.getElementById('mainContainer');
+// Update UI when user is signed in
+function updateUIForSignedIn() {
+    // Hide sign in button
+    const signInBtn = document.getElementById('headerSignInBtn');
+    if (signInBtn) signInBtn.style.display = 'none';
     
-    if (authContainer && chatContainer) {
-        authContainer.style.display = 'flex';
-        chatContainer.style.display = 'none';
+    // Show user profile
+    const userProfile = document.getElementById('userProfile');
+    if (userProfile) userProfile.style.display = 'flex';
+    
+    // Update email
+    const userEmail = document.getElementById('userEmail');
+    if (userEmail && currentUser) {
+        userEmail.textContent = currentUser.email;
+    }
+    
+    // Show sidebar
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.style.display = 'flex';
+    
+    // Close auth modal if open
+    closeAuthModal();
+    
+    // Initialize chat history
+    if (typeof initializeChatHistory === 'function') {
+        initializeChatHistory();
+    }
+}
+
+// Update UI when user is signed out
+function updateUIForSignedOut() {
+    // Show sign in button
+    const signInBtn = document.getElementById('headerSignInBtn');
+    if (signInBtn) signInBtn.style.display = 'block';
+    
+    // Hide user profile
+    const userProfile = document.getElementById('userProfile');
+    if (userProfile) userProfile.style.display = 'none';
+    
+    // Hide sidebar
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.style.display = 'none';
+}
+
+// Show auth modal
+function showAuthModal() {
+    const authModal = document.getElementById('authModal');
+    if (authModal) {
+        authModal.style.display = 'block';
+        authModal.classList.add('active');
+    }
+}
+
+// Close auth modal
+function closeAuthModal() {
+    const authModal = document.getElementById('authModal');
+    if (authModal) {
+        authModal.style.display = 'none';
+        authModal.classList.remove('active');
     }
 }
 
@@ -151,47 +202,6 @@ async function signOut() {
 function getUserDisplayName() {
     if (!currentUser) return '';
     return currentUser.displayName || currentUser.email || 'User';
-}
-
-// Show auth interface
-function showAuthInterface() {
-    const authContainer = document.getElementById('authContainer');
-    const chatContainer = document.getElementById('mainContainer');
-    const loadingScreen = document.getElementById('loadingScreen');
-    
-    if (loadingScreen) loadingScreen.style.display = 'none';
-    
-    if (authContainer && chatContainer) {
-        authContainer.style.display = 'flex';
-        chatContainer.style.display = 'none';
-    }
-}
-
-// Show chat interface
-function showChatInterface() {
-    const authContainer = document.getElementById('authContainer');
-    const chatContainer = document.getElementById('mainContainer');
-    const loadingScreen = document.getElementById('loadingScreen');
-    
-    if (loadingScreen) loadingScreen.style.display = 'none';
-    
-    if (authContainer && chatContainer) {
-        authContainer.style.display = 'none';
-        chatContainer.style.display = 'flex';
-    }
-    
-    // Update user info in header
-    if (currentUser) {
-        const userEmail = document.getElementById('userEmail');
-        if (userEmail) {
-            userEmail.textContent = currentUser.email;
-        }
-    }
-    
-    // Initialize chat history
-    if (typeof initializeChatHistory === 'function') {
-        initializeChatHistory();
-    }
 }
 
 // Check if user is authenticated
