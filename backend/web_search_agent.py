@@ -207,6 +207,47 @@ def create_web_search_agent(provider: str = "openai"):
     return workflow.compile()
 
 
+def extract_sources_from_tool_result(tool_content: str) -> List[dict]:
+    """Extract source URLs from tool search results"""
+    import re
+    sources = []
+    
+    # Pattern to match: title followed by description and Source: URL
+    # Format: "1. **Title**\n   Description\n   Source: URL"
+    lines = tool_content.split('\n')
+    current_source = {}
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Match numbered title: "1. **Title**"
+        title_match = re.match(r'^\d+\.\s+\*\*(.+?)\*\*', line)
+        if title_match:
+            if current_source:
+                sources.append(current_source)
+            current_source = {"title": title_match.group(1), "snippet": "", "url": ""}
+            continue
+        
+        # Match Source: URL
+        source_match = re.match(r'^Source:\s*(.+)$', line)
+        if source_match and current_source:
+            current_source["url"] = source_match.group(1).strip()
+            continue
+        
+        # Everything else is snippet/description
+        if current_source and line and not line.startswith('Source:'):
+            if current_source["snippet"]:
+                current_source["snippet"] += " " + line
+            else:
+                current_source["snippet"] = line
+    
+    # Don't forget the last source
+    if current_source and current_source.get("url"):
+        sources.append(current_source)
+    
+    return sources
+
+
 async def search_and_respond(
     message: str,
     conversation_history: List[dict] = None,
@@ -244,39 +285,46 @@ async def search_and_respond(
         # Run the agent
         result = agent.invoke({"messages": messages})
         
-        # Extract the final response
+        # Extract the final response and sources
         final_messages = result["messages"]
         ai_message = None
         search_performed = False
+        sources = []
         
         # Find the last AI message and check if search was performed
-        for msg in reversed(final_messages):
+        for msg in final_messages:
             if isinstance(msg, AIMessage):
                 if msg.content:  # Skip tool call messages without content
                     ai_message = msg
-                    break
-            if hasattr(msg, "name") and msg.name == "web_search":
+            # Check for tool messages (search results)
+            if hasattr(msg, "type") and msg.type == "tool":
                 search_performed = True
+                # Extract sources from tool result
+                if hasattr(msg, "content") and msg.content:
+                    sources.extend(extract_sources_from_tool_result(msg.content))
         
         if ai_message:
             return {
                 "response": ai_message.content,
                 "success": True,
                 "search_performed": search_performed,
+                "sources": sources,
                 "provider": provider
             }
         else:
             return {
                 "response": "I apologize, but I couldn't generate a response. Please try again.",
                 "success": False,
-                "error": "No response generated"
+                "error": "No response generated",
+                "sources": []
             }
             
     except Exception as e:
         return {
             "response": "",
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "sources": []
         }
 
 
@@ -316,6 +364,8 @@ async def search_and_respond_stream(
         
         # Stream the agent response
         search_performed = False
+        sources = []
+        search_query = ""
         
         async for event in agent.astream_events(
             {"messages": messages},
@@ -330,13 +380,21 @@ async def search_and_respond_stream(
                     
             elif kind == "on_tool_start":
                 tool_name = event.get("name", "tool")
-                yield {"type": "tool_start", "data": f"🔍 Searching: {tool_name}"}
+                # Try to get the search query from the event
+                tool_input = event.get("data", {}).get("input", {})
+                if isinstance(tool_input, dict):
+                    search_query = tool_input.get("query", "")
+                yield {"type": "tool_start", "data": search_query or "web"}
                 search_performed = True
                 
             elif kind == "on_tool_end":
-                yield {"type": "tool_end", "data": "Search complete"}
+                # Extract sources from tool output
+                tool_output = event.get("data", {}).get("output", "")
+                if tool_output:
+                    sources.extend(extract_sources_from_tool_result(str(tool_output)))
+                yield {"type": "tool_end", "data": "Search complete", "sources": sources}
         
-        yield {"type": "done", "search_performed": search_performed}
+        yield {"type": "done", "search_performed": search_performed, "sources": sources}
         
     except Exception as e:
         yield {"type": "error", "data": str(e)}

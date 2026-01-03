@@ -153,8 +153,69 @@ const formatInlineStyles = (text) => {
     return text;
 };
 
-// Create message element with optional reasoning
-const createMessageElement = (content, type = 'user', reasoning = null) => {
+// Create sources section HTML
+const createSourcesSection = (sources) => {
+    if (!sources || sources.length === 0) return '';
+    
+    const sourcesHtml = sources.map(source => `
+        <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-item">
+            <span class="source-title">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="15 3 21 3 21 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                ${source.title || 'Source'}
+            </span>
+            ${source.snippet ? `<span class="source-snippet">${source.snippet}</span>` : ''}
+            <span class="source-url">${source.url}</span>
+        </a>
+    `).join('');
+    
+    return `
+        <div class="sources-section">
+            <div class="sources-header">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                    <path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Sources (${sources.length})
+            </div>
+            <div class="sources-list">
+                ${sourcesHtml}
+            </div>
+        </div>
+    `;
+};
+
+// Create search status indicator
+const createSearchStatus = (status, query = '') => {
+    const isSearching = status === 'searching';
+    const icon = isSearching 
+        ? `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="32" stroke-dashoffset="32">
+                   <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
+               </circle>
+           </svg>`
+        : `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+               <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+           </svg>`;
+    
+    const text = isSearching 
+        ? `🔍 Searching the web${query ? `: <span class="search-query">"${query}"</span>` : '...'}`
+        : '✓ Search complete';
+    
+    return `
+        <div class="search-status ${isSearching ? 'searching' : 'complete'}">
+            ${icon}
+            <span>${text}</span>
+        </div>
+    `;
+};
+
+// Create message element with optional reasoning and sources
+const createMessageElement = (content, type = 'user', reasoning = null, sources = null) => {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
     
@@ -209,6 +270,14 @@ const createMessageElement = (content, type = 'user', reasoning = null) => {
     }
     
     contentDiv.appendChild(mainContent);
+    
+    // Add sources section if available
+    if (sources && sources.length > 0 && type === 'ai') {
+        const sourcesHtml = createSourcesSection(sources);
+        const sourcesContainer = document.createElement('div');
+        sourcesContainer.innerHTML = sourcesHtml;
+        contentDiv.appendChild(sourcesContainer.firstElementChild);
+    }
     
     messageDiv.appendChild(avatarDiv);
     messageDiv.appendChild(contentDiv);
@@ -415,6 +484,173 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
     }
 };
 
+// Call backend API with web search streaming
+const getAIResponseWithSearchStreaming = async (userMessage, messageElement) => {
+    try {
+        console.log('Starting web search streaming request...');
+        
+        // Get auth token
+        const token = await getAuthToken();
+        if (!token) {
+            throw new Error('Authentication required. Please sign in again.');
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/api/chat/search/stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                message: userMessage,
+                conversation_history: conversationHistory,
+                conversation_id: currentConversationId,
+                provider: 'openai'  // or 'gemini'
+            })
+        });
+        
+        if (!response.ok) {
+            console.error('HTTP error:', response.status);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        console.log('Web search stream response received');
+        
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        let fullResponse = '';
+        let provider = null;
+        let buffer = '';
+        let allSources = [];
+        let searchStatusElement = null;
+        
+        while (true) {
+            const { value, done } = await reader.read();
+            
+            if (done) break;
+            
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    
+                    try {
+                        const parsed = JSON.parse(data);
+                        console.log('SSE data:', parsed);
+                        
+                        if (parsed.error) {
+                            console.error('Stream error:', parsed.error);
+                            throw new Error(parsed.error);
+                        }
+                        
+                        // Handle provider and metadata
+                        if (parsed.provider) {
+                            provider = parsed.provider;
+                            console.log('Provider received:', provider);
+                            
+                            // Remove typing indicator
+                            const contentDiv = messageElement.querySelector('.message-content');
+                            const mainContent = contentDiv.querySelector('.main-content');
+                            
+                            const typingIndicator = mainContent.querySelector('.typing-indicator');
+                            if (typingIndicator) {
+                                typingIndicator.remove();
+                                console.log('Typing indicator removed');
+                            }
+                        }
+                        
+                        // Capture conversation ID
+                        if (parsed.conversation_id && !currentConversationId) {
+                            currentConversationId = parsed.conversation_id;
+                            console.log('Conversation ID received:', currentConversationId);
+                            loadConversations();
+                        }
+                        
+                        // Handle search status
+                        if (parsed.search_status === 'searching') {
+                            const contentDiv = messageElement.querySelector('.message-content');
+                            const mainContent = contentDiv.querySelector('.main-content');
+                            
+                            // Add search status indicator
+                            if (!searchStatusElement) {
+                                searchStatusElement = document.createElement('div');
+                                searchStatusElement.innerHTML = createSearchStatus('searching', parsed.search_query || '');
+                                contentDiv.insertBefore(searchStatusElement.firstElementChild, mainContent);
+                                searchStatusElement = contentDiv.querySelector('.search-status');
+                            }
+                        }
+                        
+                        // Handle search complete
+                        if (parsed.search_status === 'complete') {
+                            if (searchStatusElement) {
+                                searchStatusElement.outerHTML = createSearchStatus('complete');
+                                searchStatusElement = messageElement.querySelector('.search-status');
+                            }
+                            // Collect sources
+                            if (parsed.sources && parsed.sources.length > 0) {
+                                allSources = parsed.sources;
+                            }
+                        }
+                        
+                        // Update content
+                        if (parsed.content) {
+                            fullResponse += parsed.content;
+                            console.log('Content chunk received, total length:', fullResponse.length);
+                            
+                            // Update the message element in real-time
+                            const contentDiv = messageElement.querySelector('.main-content');
+                            if (contentDiv) {
+                                contentDiv.innerHTML = formatText(fullResponse);
+                            }
+                            
+                            // Auto-scroll
+                            chatMessages.scrollTop = chatMessages.scrollHeight;
+                        }
+                        
+                        // Done
+                        if (parsed.done) {
+                            console.log('Stream done, final content length:', fullResponse.length);
+                            
+                            // Add sources from final message
+                            if (parsed.sources && parsed.sources.length > 0) {
+                                allSources = parsed.sources;
+                            }
+                            
+                            // Add sources section if we have sources
+                            if (allSources.length > 0) {
+                                const contentDiv = messageElement.querySelector('.message-content');
+                                const sourcesHtml = createSourcesSection(allSources);
+                                const sourcesContainer = document.createElement('div');
+                                sourcesContainer.innerHTML = sourcesHtml;
+                                contentDiv.appendChild(sourcesContainer.firstElementChild);
+                            }
+                            break;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing SSE data:', e, 'Raw data:', data);
+                    }
+                }
+            }
+        }
+        
+        // Update conversation history
+        conversationHistory.push(
+            { role: 'user', content: userMessage },
+            { role: 'assistant', content: fullResponse }
+        );
+        
+        return { response: fullResponse, sources: allSources };
+        
+    } catch (error) {
+        console.error('Web search streaming error:', error);
+        throw error;
+    }
+};
+
 // Fallback: Call backend API (non-streaming)
 const getAIResponse = async (userMessage) => {
     try {
@@ -477,6 +713,9 @@ const getAIResponse = async (userMessage) => {
     }
 };
 
+// Configuration: Enable web search by default
+let useWebSearch = true;
+
 // Handle sending message with streaming
 const sendMessage = async () => {
     const message = messageInput.value.trim();
@@ -535,8 +774,13 @@ const sendMessage = async () => {
     sendButton.disabled = true;
     
     try {
-        // Try streaming first
-        await getAIResponseStreaming(message, aiMessageDiv);
+        if (useWebSearch) {
+            // Use web search endpoint with LangChain/LangGraph
+            await getAIResponseWithSearchStreaming(message, aiMessageDiv);
+        } else {
+            // Use regular streaming endpoint
+            await getAIResponseStreaming(message, aiMessageDiv);
+        }
     } catch (error) {
         console.warn('Streaming failed, falling back to non-streaming:', error);
         

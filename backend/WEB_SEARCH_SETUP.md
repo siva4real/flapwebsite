@@ -97,12 +97,21 @@ Same request body as above. Returns Server-Sent Events (SSE):
 
 ```
 data: {"provider": "openai", "conversation_id": "abc123", "type": "meta"}
-data: {"search_status": "🔍 Searching: web_search", "done": false}
-data: {"search_status": "Search complete", "done": false}
+data: {"search_status": "searching", "search_query": "latest Alzheimer's treatments", "done": false}
+data: {"search_status": "complete", "sources": [...], "done": false}
 data: {"content": "Based on ", "done": false}
 data: {"content": "recent ", "done": false}
 ...
-data: {"done": true, "search_performed": true}
+data: {"done": true, "search_performed": true, "sources": [...]}
+```
+
+**Source Object Format:**
+```json
+{
+    "title": "FDA Approves New Alzheimer's Drug",
+    "snippet": "The FDA announced today the approval of...",
+    "url": "https://example.com/article"
+}
 ```
 
 ### 3. Web Search Health Check

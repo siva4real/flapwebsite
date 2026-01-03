@@ -89,11 +89,17 @@ class WebSearchChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     provider: Optional[str] = "openai"  # "openai" or "gemini" for web search
 
+class SearchSource(BaseModel):
+    title: str
+    snippet: str
+    url: str
+
 class WebSearchChatResponse(BaseModel):
     response: str
     success: bool
     error: Optional[str] = None
     search_performed: Optional[bool] = False  # Whether web search was used
+    sources: Optional[List[SearchSource]] = []  # Web search sources
     provider: Optional[str] = None
     conversation_id: Optional[str] = None
 
@@ -781,11 +787,21 @@ async def chat_with_search(
                 f"{result.get('provider', 'unknown')}_search"
             )
         
+        # Convert sources to SearchSource objects
+        sources = [
+            SearchSource(
+                title=s.get("title", ""),
+                snippet=s.get("snippet", ""),
+                url=s.get("url", "")
+            ) for s in result.get("sources", [])
+        ]
+        
         return WebSearchChatResponse(
             response=result.get("response", ""),
             success=result.get("success", False),
             error=result.get("error"),
             search_performed=result.get("search_performed", False),
+            sources=sources,
             provider=result.get("provider"),
             conversation_id=conversation_id
         )
@@ -795,6 +811,7 @@ async def chat_with_search(
             response="",
             success=False,
             error=f"An error occurred: {str(e)}",
+            sources=[],
             conversation_id=conversation_id
         )
 
@@ -835,6 +852,7 @@ async def chat_with_search_stream(
         
         full_response = ""
         search_performed = False
+        all_sources = []
         
         try:
             async for chunk in search_and_respond_stream(
@@ -851,14 +869,19 @@ async def chat_with_search_stream(
                 
                 elif chunk_type == "tool_start":
                     search_performed = True
-                    yield f"data: {json.dumps({'search_status': chunk.get('data'), 'done': False})}\n\n"
+                    search_query = chunk.get("data", "web")
+                    yield f"data: {json.dumps({'search_status': 'searching', 'search_query': search_query, 'done': False})}\n\n"
                 
                 elif chunk_type == "tool_end":
-                    yield f"data: {json.dumps({'search_status': chunk.get('data'), 'done': False})}\n\n"
+                    # Collect sources from search
+                    sources = chunk.get("sources", [])
+                    all_sources.extend(sources)
+                    yield f"data: {json.dumps({'search_status': 'complete', 'sources': sources, 'done': False})}\n\n"
                 
                 elif chunk_type == "done":
                     search_performed = chunk.get("search_performed", search_performed)
-                    yield f"data: {json.dumps({'done': True, 'search_performed': search_performed})}\n\n"
+                    final_sources = chunk.get("sources", all_sources)
+                    yield f"data: {json.dumps({'done': True, 'search_performed': search_performed, 'sources': final_sources})}\n\n"
                 
                 elif chunk_type == "error":
                     yield f"data: {json.dumps({'error': chunk.get('data'), 'done': True})}\n\n"
