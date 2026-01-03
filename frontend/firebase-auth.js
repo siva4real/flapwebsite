@@ -44,6 +44,17 @@ function handleAuthStateChange(user) {
     }
 }
 
+// Show auth interface
+function showAuthInterface() {
+    const authContainer = document.getElementById('authContainer');
+    const chatContainer = document.getElementById('mainContainer');
+    
+    if (authContainer && chatContainer) {
+        authContainer.style.display = 'flex';
+        chatContainer.style.display = 'none';
+    }
+}
+
 // Get current auth token
 async function getAuthToken() {
     if (!currentUser) {
@@ -146,6 +157,9 @@ function getUserDisplayName() {
 function showAuthInterface() {
     const authContainer = document.getElementById('authContainer');
     const chatContainer = document.getElementById('mainContainer');
+    const loadingScreen = document.getElementById('loadingScreen');
+    
+    if (loadingScreen) loadingScreen.style.display = 'none';
     
     if (authContainer && chatContainer) {
         authContainer.style.display = 'flex';
@@ -157,6 +171,9 @@ function showAuthInterface() {
 function showChatInterface() {
     const authContainer = document.getElementById('authContainer');
     const chatContainer = document.getElementById('mainContainer');
+    const loadingScreen = document.getElementById('loadingScreen');
+    
+    if (loadingScreen) loadingScreen.style.display = 'none';
     
     if (authContainer && chatContainer) {
         authContainer.style.display = 'none';

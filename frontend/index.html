@@ -8,8 +8,26 @@
     <link rel="stylesheet" href="auth-styles.css">
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen" style="display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--bg-primary);">
+        <div style="text-align: center;">
+            <svg style="width: 48px; height: 48px; color: var(--primary); animation: spin 1s linear infinite;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <p style="margin-top: 16px; color: var(--text-secondary); font-size: 14px;">Loading...</p>
+        </div>
+    </div>
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    
     <!-- Authentication Container -->
-    <div class="auth-container" id="authContainer">
+    <div class="auth-container" id="authContainer" style="display: none;">
         <div class="auth-box">
             <div class="auth-header">
                 <div class="auth-logo">

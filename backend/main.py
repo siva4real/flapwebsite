@@ -288,8 +288,8 @@ def create_conversation(user_id: str, first_message: str) -> Optional[str]:
         }
         
         # Create conversation document
-        doc_ref = db.collection("users").document(user_id).collection("conversations").add(conversation_data)
-        return doc_ref[1].id
+        _, doc_ref = db.collection("users").document(user_id).collection("conversations").add(conversation_data)
+        return doc_ref.id
     except Exception as e:
         print(f"Error creating conversation: {e}")
         return None
@@ -543,6 +543,7 @@ async def chat_stream(
                                         yield f"data: {json.dumps({'reasoning': delta['reasoning'], 'done': False})}\n\n"
                                     
                                     if "content" in delta and delta["content"]:
+                                        full_response += delta["content"]
                                         yield f"data: {json.dumps({'content': delta['content'], 'done': False})}\n\n"
                                         
                                 except json.JSONDecodeError:
@@ -580,6 +581,7 @@ async def chat_stream(
                                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                                     
                                     if "content" in delta and delta["content"]:
+                                        full_response += delta["content"]
                                         yield f"data: {json.dumps({'content': delta['content'], 'done': False})}\n\n"
                                         
                                 except json.JSONDecodeError:
@@ -615,6 +617,7 @@ async def chat_stream(
                                         if current_text and current_text != previous_text:
                                             delta_text = current_text[len(previous_text):]
                                             if delta_text:
+                                                full_response += delta_text
                                                 yield f"data: {json.dumps({'content': delta_text, 'done': False})}\n\n"
                                             previous_text = current_text
                                     
