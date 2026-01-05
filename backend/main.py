@@ -938,7 +938,7 @@ async def search_health_check():
         pass
     
     try:
-        from duckduckgo_search import DDGS
+        from ddgs import DDGS
         duckduckgo_available = True
     except ImportError:
         pass
@@ -960,7 +960,7 @@ async def search_health_check():
         "packages": {
             "langchain": langchain_available,
             "langgraph": langgraph_available,
-            "duckduckgo_search": duckduckgo_available
+            "ddgs": duckduckgo_available
         },
         "message": "Web search is fully operational" if (all_packages_ready and has_llm) else "Configure at least one LLM provider (OPENAI_API_KEY or GEMINI_API_KEY)"
     }

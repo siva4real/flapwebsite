@@ -4,6 +4,7 @@ Provides web search capabilities for up-to-date medical information
 """
 
 import os
+from datetime import datetime
 from typing import Annotated, TypedDict, List, Optional
 from dotenv import load_dotenv
 
@@ -16,8 +17,13 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
 # DuckDuckGo search - free, no API key required
-from langchain_community.tools import DuckDuckGoSearchResults
-from duckduckgo_search import DDGS
+DDGS_AVAILABLE = False
+try:
+    from ddgs import DDGS
+    DDGS_AVAILABLE = True
+    print(f"[WebSearch] DuckDuckGo search initialized successfully")
+except ImportError as e:
+    print(f"Warning: ddgs package not installed: {e}")
 
 load_dotenv()
 
@@ -40,8 +46,12 @@ def create_web_search_tool():
     def web_search(query: str) -> str:
         """
         Search the web for current information using DuckDuckGo.
-        Use this tool when you need up-to-date information about medical topics,
-        recent research, drug approvals, clinical trials, or any current events.
+        Use this tool ALWAYS when you need:
+        - Up-to-date information about medical topics
+        - Recent research, drug approvals, or FDA decisions
+        - Clinical trials or new treatments
+        - Current events or recent news
+        - Any information from 2024 or 2025
         
         Args:
             query: The search query to look up
@@ -49,16 +59,30 @@ def create_web_search_tool():
         Returns:
             Search results with titles, snippets, and URLs
         """
+        print(f"[WebSearch] Searching for: {query}")
+        
+        if not DDGS_AVAILABLE:
+            return "Search error: ddgs package not installed"
+        
         try:
-            # Use DuckDuckGo search
-            with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=5))
+            # Use DuckDuckGo search with explicit settings
+            ddgs = DDGS()
+            results = list(ddgs.text(
+                query,
+                max_results=5,
+                region='wt-wt',  # Worldwide
+                safesearch='moderate'
+            ))
+            
+            print(f"[WebSearch] Found {len(results)} results")
             
             if not results:
                 return f"No results found for: {query}"
             
-            # Format results
-            formatted_results = []
+            # Format results with current date context
+            today = datetime.now().strftime("%B %d, %Y")
+            formatted_results = [f"Search performed on {today}:\n"]
+            
             for i, result in enumerate(results, 1):
                 title = result.get("title", "No title")
                 body = result.get("body", "No description")
@@ -70,6 +94,7 @@ def create_web_search_tool():
             return "\n".join(formatted_results)
             
         except Exception as e:
+            print(f"[WebSearch] Error: {str(e)}")
             return f"Search error: {str(e)}"
     
     return web_search
@@ -105,37 +130,39 @@ def get_llm(provider: str = "openai"):
         raise ValueError("No LLM API key configured. Please set OPENAI_API_KEY or GEMINI_API_KEY.")
 
 
-# Medical assistant system prompt with web search capabilities
-MEDICAL_SEARCH_SYSTEM_PROMPT = """You are Flap AI, an expert medical assistant chatbot with web search capabilities.
+def get_system_prompt():
+    """Generate system prompt with current date"""
+    today = datetime.now().strftime("%B %d, %Y")
+    current_year = datetime.now().year
+    
+    return f"""You are Flap AI, an expert medical assistant chatbot with web search capabilities.
+
+**TODAY'S DATE: {today}**
 
 Your role is to provide highly technical and accurate medical information to experts.
 
-**Important Guidelines:**
-1. You have access to a web search tool. Use it proactively to:
-   - Find the latest medical research and clinical trials
-   - Look up recent drug approvals or FDA decisions
-   - Verify current treatment guidelines
-   - Get up-to-date statistics and epidemiological data
-   - Research new or experimental treatments
+**CRITICAL: You MUST use the web_search tool for:**
+- ANY question about recent events, news, or developments
+- Questions about {current_year} or {current_year - 1} information
+- Drug approvals, FDA decisions, or regulatory changes
+- Latest treatment guidelines or protocols
+- Current statistics, prevalence rates, or epidemiological data
+- New research, clinical trials, or studies
+- Anything the user asks about that might have changed recently
 
-2. Be truth-seeking and evidence-based:
-   - Don't be afraid to go against conventional wisdom if evidence supports it
-   - Always cite your sources when using web search results
-   - Distinguish between established facts and emerging research
+**Guidelines:**
+1. ALWAYS search first when the question involves recent/current/latest information
+2. Your training data may be outdated - use web search to get current information
+3. Cite your sources from the search results
+4. Be transparent about what comes from search vs your knowledge
 
-3. Communication style:
-   - Be precise and concise
-   - Use medical terminology appropriately for expert audiences
-   - Structure complex information clearly
+**Communication style:**
+- Be precise and concise
+- Use medical terminology appropriately for expert audiences
+- Structure complex information clearly
+- Include relevant dates from your search results
 
-4. When to search:
-   - Recent developments (last 2 years)
-   - Specific statistics or data
-   - New drug information
-   - Latest treatment protocols
-   - Verification of current guidelines
-
-Always be transparent about what information comes from web searches versus your training data."""
+Remember: Today is {today}. If someone asks about "recent" or "latest" developments, search the web to provide current {current_year} information."""
 
 
 def create_web_search_agent(provider: str = "openai"):
@@ -161,9 +188,10 @@ def create_web_search_agent(provider: str = "openai"):
         """Process messages and decide whether to search or respond"""
         messages = state["messages"]
         
-        # Add system prompt if not present
+        # Add system prompt with current date if not present
         if not messages or not isinstance(messages[0], SystemMessage):
-            messages = [SystemMessage(content=MEDICAL_SEARCH_SYSTEM_PROMPT)] + list(messages)
+            system_prompt = get_system_prompt()
+            messages = [SystemMessage(content=system_prompt)] + list(messages)
         
         response = llm_with_tools.invoke(messages)
         return {"messages": [response]}
@@ -404,11 +432,30 @@ async def search_and_respond_stream(
 if __name__ == "__main__":
     import asyncio
     
-    async def test():
+    async def test_search():
+        """Test the web search directly"""
+        print("Testing web search tool...")
+        search_tool = create_web_search_tool()
+        result = search_tool.invoke("latest FDA drug approvals 2025")
+        print("Search Result:")
+        print(result)
+        print("-" * 50)
+    
+    async def test_agent():
+        """Test the full agent"""
+        print("\nTesting full agent...")
         result = await search_and_respond(
-            "What are the latest FDA-approved treatments for Alzheimer's disease in 2024?",
+            "What are the latest FDA-approved treatments for Alzheimer's disease?",
             provider="openai"
         )
-        print(result)
+        print("Agent Result:")
+        print(f"Success: {result.get('success')}")
+        print(f"Search performed: {result.get('search_performed')}")
+        print(f"Sources: {len(result.get('sources', []))}")
+        print(f"Response preview: {result.get('response', '')[:500]}...")
     
-    asyncio.run(test())
+    async def main():
+        await test_search()
+        await test_agent()
+    
+    asyncio.run(main())
