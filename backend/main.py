@@ -23,7 +23,7 @@ load_dotenv()
 from auth import initialize_firebase, get_current_user, get_optional_user, get_firestore_client
 
 # Import web search agent
-from web_search_agent import search_and_respond, search_and_respond_stream
+from web_search_agent import search_and_respond, search_and_respond_stream, get_available_search_engines
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -88,6 +88,7 @@ class WebSearchChatRequest(BaseModel):
     conversation_history: Optional[List[Message]] = []
     conversation_id: Optional[str] = None
     provider: Optional[str] = "openai"  # "openai" or "gemini" for web search
+    search_engine: Optional[str] = "auto"  # "duckduckgo", "tavily", or "auto"
 
 class SearchSource(BaseModel):
     title: str
@@ -101,6 +102,7 @@ class WebSearchChatResponse(BaseModel):
     search_performed: Optional[bool] = False  # Whether web search was used
     sources: Optional[List[SearchSource]] = []  # Web search sources
     provider: Optional[str] = None
+    search_engine: Optional[str] = None  # Which search engine was used
     conversation_id: Optional[str] = None
 
 class ConversationSummary(BaseModel):
@@ -774,7 +776,8 @@ async def chat_with_search(
         result = await search_and_respond(
             message=request.message,
             conversation_history=history,
-            provider=request.provider or "openai"
+            provider=request.provider or "openai",
+            search_engine=request.search_engine or "auto"
         )
         
         # Save AI response to history
@@ -803,6 +806,7 @@ async def chat_with_search(
             search_performed=result.get("search_performed", False),
             sources=sources,
             provider=result.get("provider"),
+            search_engine=request.search_engine or "auto",
             conversation_id=conversation_id
         )
     
@@ -848,7 +852,7 @@ async def chat_with_search_stream(
     
     async def generate():
         # Send initial metadata
-        yield f"data: {json.dumps({'provider': request.provider, 'conversation_id': conversation_id, 'type': 'meta'})}\n\n"
+        yield f"data: {json.dumps({'provider': request.provider, 'search_engine': request.search_engine, 'conversation_id': conversation_id, 'type': 'meta'})}\n\n"
         
         full_response = ""
         search_performed = False
@@ -858,7 +862,8 @@ async def chat_with_search_stream(
             async for chunk in search_and_respond_stream(
                 message=request.message,
                 conversation_history=history,
-                provider=request.provider or "openai"
+                provider=request.provider or "openai",
+                search_engine=request.search_engine or "auto"
             ):
                 chunk_type = chunk.get("type")
                 
@@ -919,11 +924,13 @@ async def search_health_check():
     
     openai_configured = bool(os.getenv("OPENAI_API_KEY"))
     gemini_configured = bool(os.getenv("GEMINI_API_KEY"))
+    tavily_configured = bool(os.getenv("TAVILY_API_KEY"))
     
     # Check if required packages are available
     langchain_available = False
     langgraph_available = False
     duckduckgo_available = False
+    tavily_available = False
     
     try:
         import langchain
@@ -943,15 +950,35 @@ async def search_health_check():
     except ImportError:
         pass
     
-    all_packages_ready = langchain_available and langgraph_available and duckduckgo_available
+    try:
+        from tavily import TavilyClient
+        tavily_available = True
+    except ImportError:
+        pass
+    
+    # Get detailed search engine info
+    search_engines = get_available_search_engines()
+    
+    any_search_available = duckduckgo_available or (tavily_available and tavily_configured)
+    all_packages_ready = langchain_available and langgraph_available and any_search_available
     has_llm = openai_configured or gemini_configured
     
     return {
         "status": "available" if (all_packages_ready and has_llm) else "limited",
-        "web_search": {
-            "engine": "DuckDuckGo",
-            "available": duckduckgo_available,
-            "requires_api_key": False
+        "search_engines": {
+            "duckduckgo": {
+                "available": duckduckgo_available,
+                "requires_api_key": False,
+                "description": "Free search, no API key required"
+            },
+            "tavily": {
+                "available": tavily_available and tavily_configured,
+                "package_installed": tavily_available,
+                "api_key_configured": tavily_configured,
+                "requires_api_key": True,
+                "description": "AI-optimized search with relevance scoring"
+            },
+            "recommended": search_engines.get("recommended", "duckduckgo")
         },
         "llm_providers": {
             "openai": openai_configured,
@@ -960,7 +987,8 @@ async def search_health_check():
         "packages": {
             "langchain": langchain_available,
             "langgraph": langgraph_available,
-            "ddgs": duckduckgo_available
+            "ddgs": duckduckgo_available,
+            "tavily": tavily_available
         },
         "message": "Web search is fully operational" if (all_packages_ready and has_llm) else "Configure at least one LLM provider (OPENAI_API_KEY or GEMINI_API_KEY)"
     }

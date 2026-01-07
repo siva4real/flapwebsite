@@ -1,11 +1,15 @@
 """
-Web Search Agent using LangChain, LangGraph, and DuckDuckGo Search
+Web Search Agent using LangChain, LangGraph, and multiple search engines
 Provides web search capabilities for up-to-date medical information
+
+Supported search engines:
+- DuckDuckGo (free, no API key required)
+- Tavily (requires API key, optimized for AI agents)
 """
 
 import os
 from datetime import datetime
-from typing import Annotated, TypedDict, List, Optional
+from typing import Annotated, TypedDict, List, Optional, Literal
 from dotenv import load_dotenv
 
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, BaseMessage
@@ -25,11 +29,26 @@ try:
 except ImportError as e:
     print(f"Warning: ddgs package not installed: {e}")
 
+# Tavily search - requires API key, optimized for AI
+TAVILY_AVAILABLE = False
+TavilyClient = None
+try:
+    from tavily import TavilyClient as _TavilyClient
+    TavilyClient = _TavilyClient
+    TAVILY_AVAILABLE = True
+    print(f"[WebSearch] Tavily search initialized successfully")
+except ImportError as e:
+    print(f"Warning: tavily-python package not installed: {e}")
+
 load_dotenv()
 
 # Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+# Search engine type
+SearchEngine = Literal["duckduckgo", "tavily", "auto"]
 
 
 class AgentState(TypedDict):
@@ -39,13 +58,139 @@ class AgentState(TypedDict):
     final_response: Optional[str]
 
 
-def create_web_search_tool():
-    """Create a DuckDuckGo web search tool - free, no API key required"""
+def _search_with_duckduckgo(query: str, max_results: int = 5) -> str:
+    """Perform search using DuckDuckGo"""
+    if not DDGS_AVAILABLE:
+        return "Search error: ddgs package not installed"
+    
+    try:
+        ddgs = DDGS()
+        results = list(ddgs.text(
+            query,
+            max_results=max_results,
+            region='wt-wt',  # Worldwide
+            safesearch='moderate'
+        ))
+        
+        print(f"[DuckDuckGo] Found {len(results)} results")
+        
+        if not results:
+            return f"No results found for: {query}"
+        
+        # Format results with current date context
+        today = datetime.now().strftime("%B %d, %Y")
+        formatted_results = [f"Search performed on {today} using DuckDuckGo:\n"]
+        
+        for i, result in enumerate(results, 1):
+            title = result.get("title", "No title")
+            body = result.get("body", "No description")
+            href = result.get("href", "")
+            formatted_results.append(
+                f"{i}. **{title}**\n   {body}\n   Source: {href}\n"
+            )
+        
+        return "\n".join(formatted_results)
+        
+    except Exception as e:
+        print(f"[DuckDuckGo] Error: {str(e)}")
+        return f"DuckDuckGo search error: {str(e)}"
+
+
+def _search_with_tavily(query: str, max_results: int = 5) -> str:
+    """Perform search using Tavily - optimized for AI agents"""
+    if not TAVILY_AVAILABLE:
+        return "Search error: tavily-python package not installed"
+    
+    if not TAVILY_API_KEY:
+        return "Search error: TAVILY_API_KEY not configured"
+    
+    try:
+        client = TavilyClient(api_key=TAVILY_API_KEY)
+        
+        # Tavily search with medical/scientific focus
+        response = client.search(
+            query=query,
+            search_depth="advanced",  # More thorough search
+            max_results=max_results,
+            include_answer=True,  # Get AI-generated answer summary
+            include_raw_content=False,
+            include_domains=[],  # No domain restrictions
+            exclude_domains=[]
+        )
+        
+        results = response.get("results", [])
+        answer = response.get("answer", "")
+        
+        print(f"[Tavily] Found {len(results)} results")
+        
+        if not results:
+            return f"No results found for: {query}"
+        
+        # Format results with current date context
+        today = datetime.now().strftime("%B %d, %Y")
+        formatted_results = [f"Search performed on {today} using Tavily:\n"]
+        
+        # Include Tavily's AI-generated answer if available
+        if answer:
+            formatted_results.append(f"**Quick Answer:** {answer}\n")
+        
+        formatted_results.append("**Sources:**\n")
+        
+        for i, result in enumerate(results, 1):
+            title = result.get("title", "No title")
+            content = result.get("content", "No description")
+            url = result.get("url", "")
+            score = result.get("score", 0)
+            
+            # Tavily provides relevance scores
+            relevance = f" (relevance: {score:.2f})" if score else ""
+            formatted_results.append(
+                f"{i}. **{title}**{relevance}\n   {content[:300]}{'...' if len(content) > 300 else ''}\n   Source: {url}\n"
+            )
+        
+        return "\n".join(formatted_results)
+        
+    except Exception as e:
+        print(f"[Tavily] Error: {str(e)}")
+        return f"Tavily search error: {str(e)}"
+
+
+def get_best_search_engine() -> str:
+    """Determine the best available search engine"""
+    # Prefer Tavily if configured (better for AI agents)
+    if TAVILY_AVAILABLE and TAVILY_API_KEY:
+        return "tavily"
+    # Fall back to DuckDuckGo (free, no API key)
+    if DDGS_AVAILABLE:
+        return "duckduckgo"
+    return "none"
+
+
+def create_web_search_tool(search_engine: SearchEngine = "auto"):
+    """
+    Create a web search tool using the specified search engine.
+    
+    Args:
+        search_engine: Which search engine to use
+            - "duckduckgo": Free, no API key required
+            - "tavily": Requires API key, optimized for AI agents
+            - "auto": Automatically select best available (prefers Tavily)
+    
+    Returns:
+        A LangChain tool for web search
+    """
+    # Determine which engine to use
+    if search_engine == "auto":
+        engine = get_best_search_engine()
+    else:
+        engine = search_engine
+    
+    print(f"[WebSearch] Using search engine: {engine}")
     
     @tool
     def web_search(query: str) -> str:
         """
-        Search the web for current information using DuckDuckGo.
+        Search the web for current information.
         Use this tool ALWAYS when you need:
         - Up-to-date information about medical topics
         - Recent research, drug approvals, or FDA decisions
@@ -61,41 +206,18 @@ def create_web_search_tool():
         """
         print(f"[WebSearch] Searching for: {query}")
         
-        if not DDGS_AVAILABLE:
-            return "Search error: ddgs package not installed"
-        
-        try:
-            # Use DuckDuckGo search with explicit settings
-            ddgs = DDGS()
-            results = list(ddgs.text(
-                query,
-                max_results=5,
-                region='wt-wt',  # Worldwide
-                safesearch='moderate'
-            ))
-            
-            print(f"[WebSearch] Found {len(results)} results")
-            
-            if not results:
-                return f"No results found for: {query}"
-            
-            # Format results with current date context
-            today = datetime.now().strftime("%B %d, %Y")
-            formatted_results = [f"Search performed on {today}:\n"]
-            
-            for i, result in enumerate(results, 1):
-                title = result.get("title", "No title")
-                body = result.get("body", "No description")
-                href = result.get("href", "")
-                formatted_results.append(
-                    f"{i}. **{title}**\n   {body}\n   Source: {href}\n"
-                )
-            
-            return "\n".join(formatted_results)
-            
-        except Exception as e:
-            print(f"[WebSearch] Error: {str(e)}")
-            return f"Search error: {str(e)}"
+        if engine == "tavily":
+            return _search_with_tavily(query)
+        elif engine == "duckduckgo":
+            return _search_with_duckduckgo(query)
+        else:
+            # Try both as fallback
+            if TAVILY_AVAILABLE and TAVILY_API_KEY:
+                return _search_with_tavily(query)
+            elif DDGS_AVAILABLE:
+                return _search_with_duckduckgo(query)
+            else:
+                return "Search error: No search engine available. Install ddgs or tavily-python package."
     
     return web_search
 
@@ -165,19 +287,20 @@ Your role is to provide highly technical and accurate medical information to exp
 Remember: Today is {today}. If someone asks about "recent" or "latest" developments, search the web to provide current {current_year} information."""
 
 
-def create_web_search_agent(provider: str = "openai"):
+def create_web_search_agent(provider: str = "openai", search_engine: SearchEngine = "auto"):
     """
     Create a LangGraph agent with web search capabilities.
     
     Args:
         provider: The LLM provider to use ("openai" or "gemini")
+        search_engine: Which search engine to use ("duckduckgo", "tavily", or "auto")
         
     Returns:
         A compiled LangGraph agent
     """
     # Initialize LLM with tools
     llm = get_llm(provider)
-    search_tool = create_web_search_tool()
+    search_tool = create_web_search_tool(search_engine)
     tools = [search_tool]
     
     # Bind tools to the LLM
@@ -279,7 +402,8 @@ def extract_sources_from_tool_result(tool_content: str) -> List[dict]:
 async def search_and_respond(
     message: str,
     conversation_history: List[dict] = None,
-    provider: str = "openai"
+    provider: str = "openai",
+    search_engine: SearchEngine = "auto"
 ) -> dict:
     """
     Process a user message with web search capabilities.
@@ -288,13 +412,14 @@ async def search_and_respond(
         message: The user's message
         conversation_history: Previous messages in the conversation
         provider: The LLM provider to use
+        search_engine: Which search engine to use ("duckduckgo", "tavily", or "auto")
         
     Returns:
         A dictionary with the response and metadata
     """
     try:
         # Create the agent
-        agent = create_web_search_agent(provider)
+        agent = create_web_search_agent(provider, search_engine)
         
         # Build messages
         messages = []
@@ -359,7 +484,8 @@ async def search_and_respond(
 async def search_and_respond_stream(
     message: str,
     conversation_history: List[dict] = None,
-    provider: str = "openai"
+    provider: str = "openai",
+    search_engine: SearchEngine = "auto"
 ):
     """
     Stream a response with web search capabilities.
@@ -368,13 +494,14 @@ async def search_and_respond_stream(
         message: The user's message
         conversation_history: Previous messages in the conversation
         provider: The LLM provider to use
+        search_engine: Which search engine to use ("duckduckgo", "tavily", or "auto")
         
     Yields:
         Chunks of the response
     """
     try:
         # Create the agent
-        agent = create_web_search_agent(provider)
+        agent = create_web_search_agent(provider, search_engine)
         
         # Build messages
         messages = []
@@ -428,14 +555,65 @@ async def search_and_respond_stream(
         yield {"type": "error", "data": str(e)}
 
 
+def get_available_search_engines() -> dict:
+    """Get information about available search engines"""
+    return {
+        "duckduckgo": {
+            "available": DDGS_AVAILABLE,
+            "requires_api_key": False,
+            "description": "Free search engine, no API key required"
+        },
+        "tavily": {
+            "available": TAVILY_AVAILABLE and bool(TAVILY_API_KEY),
+            "configured": bool(TAVILY_API_KEY),
+            "package_installed": TAVILY_AVAILABLE,
+            "requires_api_key": True,
+            "description": "AI-optimized search with relevance scoring and answer summaries"
+        },
+        "recommended": get_best_search_engine()
+    }
+
+
 # Simple test function
 if __name__ == "__main__":
     import asyncio
     
-    async def test_search():
-        """Test the web search directly"""
-        print("Testing web search tool...")
-        search_tool = create_web_search_tool()
+    async def test_duckduckgo():
+        """Test DuckDuckGo search"""
+        print("=" * 60)
+        print("Testing DuckDuckGo search...")
+        print("=" * 60)
+        search_tool = create_web_search_tool("duckduckgo")
+        result = search_tool.invoke("latest FDA drug approvals 2025")
+        print("Search Result:")
+        print(result)
+        print("-" * 50)
+    
+    async def test_tavily():
+        """Test Tavily search"""
+        print("=" * 60)
+        print("Testing Tavily search...")
+        print("=" * 60)
+        if not TAVILY_API_KEY:
+            print("TAVILY_API_KEY not configured, skipping Tavily test")
+            return
+        
+        search_tool = create_web_search_tool("tavily")
+        result = search_tool.invoke("latest FDA drug approvals 2025")
+        print("Search Result:")
+        print(result)
+        print("-" * 50)
+    
+    async def test_auto():
+        """Test auto search engine selection"""
+        print("=" * 60)
+        print("Testing AUTO search engine selection...")
+        print("=" * 60)
+        engines = get_available_search_engines()
+        print(f"Available engines: {engines}")
+        print(f"Recommended engine: {engines['recommended']}")
+        
+        search_tool = create_web_search_tool("auto")
         result = search_tool.invoke("latest FDA drug approvals 2025")
         print("Search Result:")
         print(result)
@@ -443,10 +621,13 @@ if __name__ == "__main__":
     
     async def test_agent():
         """Test the full agent"""
-        print("\nTesting full agent...")
+        print("=" * 60)
+        print("Testing full agent with auto search...")
+        print("=" * 60)
         result = await search_and_respond(
             "What are the latest FDA-approved treatments for Alzheimer's disease?",
-            provider="openai"
+            provider="openai",
+            search_engine="auto"
         )
         print("Agent Result:")
         print(f"Success: {result.get('success')}")
@@ -455,7 +636,23 @@ if __name__ == "__main__":
         print(f"Response preview: {result.get('response', '')[:500]}...")
     
     async def main():
-        await test_search()
+        print("\n" + "=" * 60)
+        print("WEB SEARCH AGENT TEST SUITE")
+        print("=" * 60 + "\n")
+        
+        # Show available engines
+        engines = get_available_search_engines()
+        print("Available Search Engines:")
+        for name, info in engines.items():
+            if name != "recommended":
+                status = "[OK] Available" if info.get('available') else "[X] Not available"
+                print(f"  - {name}: {status}")
+        print(f"  - Recommended: {engines['recommended']}")
+        print()
+        
+        await test_duckduckgo()
+        await test_tavily()
+        await test_auto()
         await test_agent()
     
     asyncio.run(main())
