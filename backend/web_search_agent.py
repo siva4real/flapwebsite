@@ -2,9 +2,14 @@
 Web Search Agent using LangChain, LangGraph, and multiple search engines
 Provides web search capabilities for up-to-date medical information
 
+Supported LLM providers:
+- Grok (xAI) - requires GROK_API_KEY
+- OpenAI GPT - requires OPENAI_API_KEY
+- Google Gemini - requires GEMINI_API_KEY
+
 Supported search engines:
 - DuckDuckGo (free, no API key required)
-- Tavily (requires API key, optimized for AI agents)
+- Tavily (requires TAVILY_API_KEY, optimized for AI agents)
 """
 
 import os
@@ -45,7 +50,11 @@ load_dotenv()
 # Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GROK_API_KEY = os.getenv("GROK_API_KEY")
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+# Grok API URL (OpenAI-compatible)
+GROK_API_URL = "https://api.x.ai/v1"
 
 # Search engine type
 SearchEngine = Literal["duckduckgo", "tavily", "auto"]
@@ -224,7 +233,15 @@ def create_web_search_tool(search_engine: SearchEngine = "auto"):
 
 def get_llm(provider: str = "openai"):
     """Get the LLM based on the provider"""
-    if provider == "openai" and OPENAI_API_KEY:
+    if provider == "grok" and GROK_API_KEY:
+        # Grok uses OpenAI-compatible API
+        return ChatOpenAI(
+            model="grok-3",
+            temperature=0.7,
+            api_key=GROK_API_KEY,
+            base_url=GROK_API_URL
+        )
+    elif provider == "openai" and OPENAI_API_KEY:
         return ChatOpenAI(
             model="gpt-4o",
             temperature=0.7,
@@ -235,6 +252,14 @@ def get_llm(provider: str = "openai"):
             model="gemini-2.0-flash-exp",
             temperature=0.7,
             google_api_key=GEMINI_API_KEY
+        )
+    # Fallback: try any available provider
+    elif GROK_API_KEY:
+        return ChatOpenAI(
+            model="grok-3",
+            temperature=0.7,
+            api_key=GROK_API_KEY,
+            base_url=GROK_API_URL
         )
     elif OPENAI_API_KEY:
         return ChatOpenAI(
@@ -249,7 +274,7 @@ def get_llm(provider: str = "openai"):
             google_api_key=GEMINI_API_KEY
         )
     else:
-        raise ValueError("No LLM API key configured. Please set OPENAI_API_KEY or GEMINI_API_KEY.")
+        raise ValueError("No LLM API key configured. Please set GROK_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.")
 
 
 def get_system_prompt():

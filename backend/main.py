@@ -922,6 +922,7 @@ async def search_health_check():
     """Check if web search capabilities are available"""
     import os
     
+    grok_configured = bool(os.getenv("GROK_API_KEY"))
     openai_configured = bool(os.getenv("OPENAI_API_KEY"))
     gemini_configured = bool(os.getenv("GEMINI_API_KEY"))
     tavily_configured = bool(os.getenv("TAVILY_API_KEY"))
@@ -961,7 +962,7 @@ async def search_health_check():
     
     any_search_available = duckduckgo_available or (tavily_available and tavily_configured)
     all_packages_ready = langchain_available and langgraph_available and any_search_available
-    has_llm = openai_configured or gemini_configured
+    has_llm = grok_configured or openai_configured or gemini_configured
     
     return {
         "status": "available" if (all_packages_ready and has_llm) else "limited",
@@ -981,6 +982,7 @@ async def search_health_check():
             "recommended": search_engines.get("recommended", "duckduckgo")
         },
         "llm_providers": {
+            "grok": grok_configured,
             "openai": openai_configured,
             "gemini": gemini_configured
         },
@@ -990,7 +992,7 @@ async def search_health_check():
             "ddgs": duckduckgo_available,
             "tavily": tavily_available
         },
-        "message": "Web search is fully operational" if (all_packages_ready and has_llm) else "Configure at least one LLM provider (OPENAI_API_KEY or GEMINI_API_KEY)"
+        "message": "Web search is fully operational" if (all_packages_ready and has_llm) else "Configure at least one LLM provider (GROK_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY)"
     }
 
 
