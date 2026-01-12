@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flap AI - Medical Chatbot</title>
+    <meta name="description" content="Flap AI - Your intelligent medical assistant powered by AI. Get accurate health information and medical guidance.">
+    <meta name="keywords" content="medical AI, health chatbot, medical assistant, AI doctor, health information">
+    <title>Flap AI - Intelligent Medical Assistant</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="auth-styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 </head>
 <body>
     <!-- Authentication Modal -->
@@ -67,20 +71,96 @@
         </div>
     </div>
 
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-modal-overlay" id="settingsModalOverlay"></div>
+        <div class="settings-modal-content">
+            <div class="settings-header">
+                <h2 class="settings-title">Settings</h2>
+                <button class="settings-close" id="settingsClose" aria-label="Close settings">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="settings-section">
+                <h3 class="settings-section-title">Appearance</h3>
+                <div class="settings-option">
+                    <div>
+                        <div class="settings-option-label">Dark Mode</div>
+                        <div class="settings-option-desc">Switch between light and dark themes</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="darkModeToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3 class="settings-section-title">Search</h3>
+                <div class="settings-option">
+                    <div>
+                        <div class="settings-option-label">Web Search</div>
+                        <div class="settings-option-desc">Enable real-time web search for answers</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="webSearchToggle" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h3 class="settings-section-title">About</h3>
+                <div class="settings-option" style="flex-direction: column; align-items: flex-start;">
+                    <div class="settings-option-label">Flap AI</div>
+                    <div class="settings-option-desc">Your intelligent medical assistant. Always consult a healthcare professional for medical advice.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <!-- Main Chat Container -->
     <div class="container" id="mainContainer">
         <!-- Sidebar for conversation history -->
-        <aside class="sidebar" id="sidebar" style="display: none;">
+        <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h3 class="sidebar-title">Conversations</h3>
-                <button class="icon-button" id="newConversationBtn" aria-label="New conversation" title="New conversation">
+                <h3 class="sidebar-title">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Conversations
+                </h3>
+                <button class="sidebar-close" id="sidebarClose" aria-label="Close sidebar">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 </button>
             </div>
             <div class="conversations-list" id="conversationsList">
                 <!-- Conversations will be loaded here -->
+            </div>
+            
+            <!-- Sidebar Footer with Settings & New Chat -->
+            <div class="sidebar-footer">
+                <button class="sidebar-menu-item" id="newConversationBtn">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    New Conversation
+                </button>
+                <button class="sidebar-menu-item" id="settingsBtn">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Settings
+                </button>
             </div>
         </aside>
 
@@ -89,19 +169,24 @@
         <!-- Header -->
         <header class="header">
             <div class="header-content">
-                <button class="icon-button mobile-only" id="toggleSidebar" aria-label="Toggle sidebar">
+                <!-- Menu Button for Sidebar -->
+                <button class="menu-button" id="menuButton" aria-label="Open menu">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     </svg>
                 </button>
+                
                 <div class="logo">
-                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
+                    <div class="logo-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
                     <span class="logo-text">Flap AI</span>
                 </div>
+                
                 <div class="header-actions">
                     <!-- Show sign in button when not authenticated -->
                     <button class="sign-in-button" id="headerSignInBtn" style="display: none;">
@@ -130,7 +215,7 @@
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
-                    <button class="icon-button desktop-only" id="newChatBtn" aria-label="New chat">
+                    <button class="icon-button" id="newChatBtn" aria-label="New chat">
                         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>
@@ -152,7 +237,7 @@
                         </svg>
                     </div>
                     <h1 class="welcome-title">Welcome to Flap AI</h1>
-                    <p class="welcome-subtitle">Your expert medical assistant. Ask me anything about health and medicine.</p>
+                    <p class="welcome-subtitle">Your intelligent medical assistant. Ask me anything about health, symptoms, treatments, and wellness.</p>
                     
                     <div class="suggestion-cards">
                         <button class="suggestion-card" data-prompt="What are the common symptoms of diabetes?">
@@ -176,8 +261,10 @@
                         </button>
                         <button class="suggestion-card" data-prompt="What should I know about nutrition and balanced diet?">
                             <svg class="suggestion-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M3 3h18v18H3z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                <path d="M3 9h18M9 21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="6" y1="1" x2="6" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <line x1="10" y1="1" x2="10" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <line x1="14" y1="1" x2="14" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                             <span>What should I know about nutrition and balanced diet?</span>
                         </button>
@@ -189,6 +276,12 @@
         <!-- Input Area -->
         <footer class="input-container">
             <div class="input-wrapper">
+                <!-- Enhance Button (Plus sign) -->
+                <button class="enhance-button" id="enhanceButton" aria-label="Enhance prompt">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </button>
                 <textarea 
                     id="messageInput" 
                     class="message-input" 
@@ -201,7 +294,7 @@
                     </svg>
                 </button>
             </div>
-            <p class="disclaimer">Flap AI can make mistakes. Consider checking important information.</p>
+            <p class="disclaimer">Flap AI provides general information only. Always consult a healthcare professional for medical advice.</p>
         </footer>
         </div>
     </div>

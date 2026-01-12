@@ -75,25 +75,25 @@ async function loadConversation(conversationId) {
         if (!response.ok) throw new Error('Failed to load conversation');
 
         const data = await response.json();
-        
+
         currentConversationId = conversationId;
         conversationHistory = data.messages || [];
-        
+
         // Clear chat and display messages
         clearChat();
         data.messages.forEach(msg => {
             const messageElement = createMessageElement(msg.content, msg.role === 'user' ? 'user' : 'ai');
             chatMessages.appendChild(messageElement);
         });
-        
+
         chatMessages.scrollTop = chatMessages.scrollHeight;
-        
+
         // Update active state in sidebar
         document.querySelectorAll('.conversation-item').forEach(item => {
             item.classList.remove('active');
         });
         document.querySelector(`[data-id="${conversationId}"]`)?.closest('.conversation-item')?.classList.add('active');
-        
+
     } catch (error) {
         console.error('Error loading conversation:', error);
     }
@@ -102,7 +102,7 @@ async function loadConversation(conversationId) {
 // Delete a conversation
 async function deleteConversation(event, conversationId) {
     event.stopPropagation();
-    
+
     if (!confirm('Delete this conversation?')) return;
 
     try {
@@ -136,7 +136,7 @@ function startNewConversation() {
     conversationHistory = [];
     clearChat();
     showWelcomeScreen();
-    
+
     // Remove active state from all conversations
     document.querySelectorAll('.conversation-item').forEach(item => {
         item.classList.remove('active');
@@ -149,7 +149,7 @@ function clearChat() {
     if (welcomeScreen) {
         welcomeScreen.style.display = 'none';
     }
-    
+
     // Remove all messages except welcome screen
     const messages = chatMessages.querySelectorAll('.message');
     messages.forEach(msg => msg.remove());
@@ -166,16 +166,24 @@ function showWelcomeScreen() {
 // Toggle sidebar on mobile
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('open');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    if (sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+        sidebarOverlay?.classList.remove('active');
+        document.body.style.overflow = '';
+    } else {
+        sidebar.classList.add('open');
+        sidebarOverlay?.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
 }
 
 // Initialize chat history
 function initializeChatHistory() {
     // Load conversations when user signs in
     loadConversations();
-    
-    // Set up event listeners
-    document.getElementById('newConversationBtn')?.addEventListener('click', startNewConversation);
-    document.getElementById('newChatBtn')?.addEventListener('click', startNewConversation);
-    document.getElementById('toggleSidebar')?.addEventListener('click', toggleSidebar);
+
+    // Note: Event listeners for sidebar toggle and new conversation
+    // are now handled in script.js
 }

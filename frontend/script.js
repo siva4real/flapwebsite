@@ -35,17 +35,17 @@ const formatText = (text) => {
         div.textContent = str;
         return div.innerHTML;
     };
-    
+
     // Split into lines for processing
     let lines = text.split('\n');
     let html = '';
     let inList = false;
     let inCodeBlock = false;
     let codeBlockContent = '';
-    
+
     for (let i = 0; i < lines.length; i++) {
         let line = lines[i];
-        
+
         // Code blocks (```)
         if (line.trim().startsWith('```')) {
             if (!inCodeBlock) {
@@ -59,12 +59,12 @@ const formatText = (text) => {
                 continue;
             }
         }
-        
+
         if (inCodeBlock) {
             codeBlockContent += line + '\n';
             continue;
         }
-        
+
         // Headers (###, ##, #)
         if (line.match(/^#{1,3}\s/)) {
             const level = line.match(/^#+/)[0].length;
@@ -72,7 +72,7 @@ const formatText = (text) => {
             html += `<h${level + 2}>${escapeHtml(text)}</h${level + 2}>`;
             continue;
         }
-        
+
         // Unordered lists (-, *, •)
         if (line.match(/^\s*[-*•]\s/)) {
             if (!inList) {
@@ -83,7 +83,7 @@ const formatText = (text) => {
             html += `<li>${formatInlineStyles(text)}</li>`;
             continue;
         }
-        
+
         // Numbered lists (1., 2., etc)
         if (line.match(/^\s*\d+\.\s/)) {
             if (!inList) {
@@ -94,13 +94,13 @@ const formatText = (text) => {
             html += `<li>${formatInlineStyles(text)}</li>`;
             continue;
         }
-        
+
         // Close list if we were in one
         if (inList && !line.match(/^\s*[-*•\d]/)) {
             html += inList === 'ul' ? '</ul>' : '</ol>';
             inList = false;
         }
-        
+
         // Empty line = new paragraph
         if (line.trim() === '') {
             if (html && !html.endsWith('>')) {
@@ -108,14 +108,14 @@ const formatText = (text) => {
             }
             continue;
         }
-        
+
         // Regular paragraph
         if (!html.endsWith('>') || html.endsWith('</p>') || html.endsWith('</ul>') || html.endsWith('</ol>') || html.endsWith('</pre>')) {
             html += '<p>';
         }
         html += formatInlineStyles(line) + ' ';
     }
-    
+
     // Close any open tags
     if (inList) {
         html += '</ul>';
@@ -123,7 +123,7 @@ const formatText = (text) => {
     if (html && !html.endsWith('>')) {
         html += '</p>';
     }
-    
+
     return html;
 };
 
@@ -135,28 +135,28 @@ const formatInlineStyles = (text) => {
         div.textContent = str;
         return div.innerHTML;
     };
-    
+
     // Bold **text** or __text__
     text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
     text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
-    
+
     // Italic *text* or _text_
     text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
     text = text.replace(/_(.+?)_/g, '<em>$1</em>');
-    
+
     // Inline code `code`
     text = text.replace(/`(.+?)`/g, '<code>$1</code>');
-    
+
     // Links [text](url)
     text = text.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    
+
     return text;
 };
 
 // Create sources section HTML
 const createSourcesSection = (sources) => {
     if (!sources || sources.length === 0) return '';
-    
+
     const sourcesHtml = sources.map(source => `
         <a href="${source.url}" target="_blank" rel="noopener noreferrer" class="source-item">
             <span class="source-title">
@@ -171,7 +171,7 @@ const createSourcesSection = (sources) => {
             <span class="source-url">${source.url}</span>
         </a>
     `).join('');
-    
+
     return `
         <div class="sources-section">
             <div class="sources-header">
@@ -191,7 +191,7 @@ const createSourcesSection = (sources) => {
 // Create search status indicator
 const createSearchStatus = (status, query = '') => {
     const isSearching = status === 'searching';
-    const icon = isSearching 
+    const icon = isSearching
         ? `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="32" stroke-dashoffset="32">
                    <animate attributeName="stroke-dashoffset" values="32;0" dur="1s" repeatCount="indefinite"/>
@@ -201,11 +201,11 @@ const createSearchStatus = (status, query = '') => {
                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                <polyline points="22 4 12 14.01 9 11.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
            </svg>`;
-    
-    const text = isSearching 
+
+    const text = isSearching
         ? `🔍 Searching the web${query ? `: <span class="search-query">"${query}"</span>` : '...'}`
         : '✓ Search complete';
-    
+
     return `
         <div class="search-status ${isSearching ? 'searching' : 'complete'}">
             ${icon}
@@ -218,10 +218,10 @@ const createSearchStatus = (status, query = '') => {
 const createMessageElement = (content, type = 'user', reasoning = null, sources = null) => {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
-    
+
     const avatarDiv = document.createElement('div');
     avatarDiv.className = 'message-avatar';
-    
+
     if (type === 'user') {
         avatarDiv.innerHTML = `
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -238,10 +238,10 @@ const createMessageElement = (content, type = 'user', reasoning = null, sources 
             </svg>
         `;
     }
-    
+
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    
+
     // Add reasoning section if available
     if (reasoning && type === 'ai') {
         const reasoningDiv = document.createElement('details');
@@ -249,28 +249,28 @@ const createMessageElement = (content, type = 'user', reasoning = null, sources 
         const reasoningSummary = document.createElement('summary');
         reasoningSummary.textContent = '🧠 Show Reasoning';
         reasoningDiv.appendChild(reasoningSummary);
-        
+
         const reasoningContent = document.createElement('div');
         reasoningContent.className = 'reasoning-content';
         reasoningContent.innerHTML = formatText(reasoning);
         reasoningDiv.appendChild(reasoningContent);
-        
+
         contentDiv.appendChild(reasoningDiv);
     }
-    
+
     // Add main content
     const mainContent = document.createElement('div');
     mainContent.className = 'main-content';
-    
+
     // Format AI responses, keep user messages as plain text
     if (type === 'ai') {
         mainContent.innerHTML = formatText(content);
     } else {
         mainContent.textContent = content;
     }
-    
+
     contentDiv.appendChild(mainContent);
-    
+
     // Add sources section if available
     if (sources && sources.length > 0 && type === 'ai') {
         const sourcesHtml = createSourcesSection(sources);
@@ -278,10 +278,10 @@ const createMessageElement = (content, type = 'user', reasoning = null, sources 
         sourcesContainer.innerHTML = sourcesHtml;
         contentDiv.appendChild(sourcesContainer.firstElementChild);
     }
-    
+
     messageDiv.appendChild(avatarDiv);
     messageDiv.appendChild(contentDiv);
-    
+
     return messageDiv;
 };
 
@@ -290,7 +290,7 @@ const createTypingIndicator = () => {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message ai';
     messageDiv.id = 'typing-indicator';
-    
+
     const avatarDiv = document.createElement('div');
     avatarDiv.className = 'message-avatar';
     avatarDiv.innerHTML = `
@@ -300,10 +300,10 @@ const createTypingIndicator = () => {
             <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
     `;
-    
+
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
-    
+
     const typingDiv = document.createElement('div');
     typingDiv.className = 'typing-indicator';
     typingDiv.innerHTML = `
@@ -311,11 +311,11 @@ const createTypingIndicator = () => {
         <div class="typing-dot"></div>
         <div class="typing-dot"></div>
     `;
-    
+
     contentDiv.appendChild(typingDiv);
     messageDiv.appendChild(avatarDiv);
     messageDiv.appendChild(contentDiv);
-    
+
     return messageDiv;
 };
 
@@ -337,13 +337,13 @@ const hideWelcomeScreen = () => {
 const getAIResponseStreaming = async (userMessage, messageElement) => {
     try {
         console.log('Starting streaming request...');
-        
+
         // Get auth token
         const token = await getAuthToken();
         if (!token) {
             throw new Error('Authentication required. Please sign in again.');
         }
-        
+
         const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
             method: 'POST',
             headers: {
@@ -356,65 +356,65 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                 conversation_id: currentConversationId
             })
         });
-        
+
         if (!response.ok) {
             console.error('HTTP error:', response.status);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         console.log('Stream response received');
-        
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        
+
         let fullResponse = '';
         let fullReasoning = '';
         let provider = null;
         let buffer = '';
         let hasContent = false;
-        
+
         while (true) {
             const { value, done } = await reader.read();
-            
+
             if (done) break;
-            
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
-            
+
             for (const line of lines) {
                 if (line.startsWith('data: ')) {
                     const data = line.slice(6);
-                    
+
                     try {
                         const parsed = JSON.parse(data);
                         console.log('SSE data:', parsed);
-                        
+
                         if (parsed.error) {
                             console.error('Stream error:', parsed.error);
                             throw new Error(parsed.error);
                         }
-                        
+
                         // Update reasoning
                         if (parsed.reasoning) {
                             fullReasoning += parsed.reasoning;
                         }
-                        
+
                         if (parsed.provider) {
                             provider = parsed.provider;
                             console.log('Provider received:', provider);
-                            
+
                             // Remove typing indicator
                             const contentDiv = messageElement.querySelector('.message-content');
                             const mainContent = contentDiv.querySelector('.main-content');
-                            
+
                             const typingIndicator = mainContent.querySelector('.typing-indicator');
                             if (typingIndicator) {
                                 typingIndicator.remove();
                                 console.log('Typing indicator removed');
                             }
                         }
-                        
+
                         // Capture conversation ID
                         if (parsed.conversation_id && !currentConversationId) {
                             currentConversationId = parsed.conversation_id;
@@ -422,23 +422,23 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                             // Reload conversations list to show new conversation
                             loadConversations();
                         }
-                        
+
                         // Update content
                         if (parsed.content) {
                             hasContent = true;
                             fullResponse += parsed.content;
                             console.log('Content chunk received, total length:', fullResponse.length);
-                            
+
                             // Update the message element in real-time
                             const contentDiv = messageElement.querySelector('.main-content');
                             if (contentDiv) {
                                 contentDiv.innerHTML = formatText(fullResponse);
                             }
-                            
+
                             // Auto-scroll
                             chatMessages.scrollTop = chatMessages.scrollHeight;
                         }
-                        
+
                         // Done
                         if (parsed.done) {
                             console.log('Stream done, final content length:', fullResponse.length);
@@ -450,13 +450,13 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
                 }
             }
         }
-        
+
         // Update conversation history
         conversationHistory.push(
             { role: 'user', content: userMessage },
             { role: 'assistant', content: fullResponse }
         );
-        
+
         // Add reasoning section if available
         if (fullReasoning) {
             const contentDiv = messageElement.querySelector('.message-content');
@@ -465,19 +465,19 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
             const reasoningSummary = document.createElement('summary');
             reasoningSummary.textContent = '🧠 Show Reasoning';
             reasoningDiv.appendChild(reasoningSummary);
-            
+
             const reasoningContent = document.createElement('div');
             reasoningContent.className = 'reasoning-content';
             reasoningContent.innerHTML = formatText(fullReasoning);
             reasoningDiv.appendChild(reasoningContent);
-            
+
             // Insert reasoning before main content
             const mainContent = contentDiv.querySelector('.main-content');
             contentDiv.insertBefore(reasoningDiv, mainContent);
         }
-        
+
         return fullResponse;
-        
+
     } catch (error) {
         console.error('Streaming error:', error);
         throw error;
@@ -488,13 +488,13 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
 const getAIResponseWithSearchStreaming = async (userMessage, messageElement) => {
     try {
         console.log('Starting web search streaming request...');
-        
+
         // Get auth token
         const token = await getAuthToken();
         if (!token) {
             throw new Error('Authentication required. Please sign in again.');
         }
-        
+
         const response = await fetch(`${API_BASE_URL}/api/chat/search/stream`, {
             method: 'POST',
             headers: {
@@ -508,73 +508,73 @@ const getAIResponseWithSearchStreaming = async (userMessage, messageElement) => 
                 provider: 'openai'  // or 'gemini'
             })
         });
-        
+
         if (!response.ok) {
             console.error('HTTP error:', response.status);
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         console.log('Web search stream response received');
-        
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        
+
         let fullResponse = '';
         let provider = null;
         let buffer = '';
         let allSources = [];
         let searchStatusElement = null;
-        
+
         while (true) {
             const { value, done } = await reader.read();
-            
+
             if (done) break;
-            
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
             buffer = lines.pop() || '';
-            
+
             for (const line of lines) {
                 if (line.startsWith('data: ')) {
                     const data = line.slice(6);
-                    
+
                     try {
                         const parsed = JSON.parse(data);
                         console.log('SSE data:', parsed);
-                        
+
                         if (parsed.error) {
                             console.error('Stream error:', parsed.error);
                             throw new Error(parsed.error);
                         }
-                        
+
                         // Handle provider and metadata
                         if (parsed.provider) {
                             provider = parsed.provider;
                             console.log('Provider received:', provider);
-                            
+
                             // Remove typing indicator
                             const contentDiv = messageElement.querySelector('.message-content');
                             const mainContent = contentDiv.querySelector('.main-content');
-                            
+
                             const typingIndicator = mainContent.querySelector('.typing-indicator');
                             if (typingIndicator) {
                                 typingIndicator.remove();
                                 console.log('Typing indicator removed');
                             }
                         }
-                        
+
                         // Capture conversation ID
                         if (parsed.conversation_id && !currentConversationId) {
                             currentConversationId = parsed.conversation_id;
                             console.log('Conversation ID received:', currentConversationId);
                             loadConversations();
                         }
-                        
+
                         // Handle search status
                         if (parsed.search_status === 'searching') {
                             const contentDiv = messageElement.querySelector('.message-content');
                             const mainContent = contentDiv.querySelector('.main-content');
-                            
+
                             // Add search status indicator
                             if (!searchStatusElement) {
                                 searchStatusElement = document.createElement('div');
@@ -583,7 +583,7 @@ const getAIResponseWithSearchStreaming = async (userMessage, messageElement) => 
                                 searchStatusElement = contentDiv.querySelector('.search-status');
                             }
                         }
-                        
+
                         // Handle search complete
                         if (parsed.search_status === 'complete') {
                             if (searchStatusElement) {
@@ -595,31 +595,31 @@ const getAIResponseWithSearchStreaming = async (userMessage, messageElement) => 
                                 allSources = parsed.sources;
                             }
                         }
-                        
+
                         // Update content
                         if (parsed.content) {
                             fullResponse += parsed.content;
                             console.log('Content chunk received, total length:', fullResponse.length);
-                            
+
                             // Update the message element in real-time
                             const contentDiv = messageElement.querySelector('.main-content');
                             if (contentDiv) {
                                 contentDiv.innerHTML = formatText(fullResponse);
                             }
-                            
+
                             // Auto-scroll
                             chatMessages.scrollTop = chatMessages.scrollHeight;
                         }
-                        
+
                         // Done
                         if (parsed.done) {
                             console.log('Stream done, final content length:', fullResponse.length);
-                            
+
                             // Add sources from final message
                             if (parsed.sources && parsed.sources.length > 0) {
                                 allSources = parsed.sources;
                             }
-                            
+
                             // Add sources section if we have sources
                             if (allSources.length > 0) {
                                 const contentDiv = messageElement.querySelector('.message-content');
@@ -636,15 +636,15 @@ const getAIResponseWithSearchStreaming = async (userMessage, messageElement) => 
                 }
             }
         }
-        
+
         // Update conversation history
         conversationHistory.push(
             { role: 'user', content: userMessage },
             { role: 'assistant', content: fullResponse }
         );
-        
+
         return { response: fullResponse, sources: allSources };
-        
+
     } catch (error) {
         console.error('Web search streaming error:', error);
         throw error;
@@ -659,7 +659,7 @@ const getAIResponse = async (userMessage) => {
         if (!token) {
             throw new Error('Authentication required. Please sign in again.');
         }
-        
+
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: 'POST',
             headers: {
@@ -672,38 +672,38 @@ const getAIResponse = async (userMessage) => {
                 conversation_id: currentConversationId
             })
         });
-        
+
         if (!response.ok) {
             throw new Error(`API error: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.success) {
             throw new Error(data.error || 'Unknown error occurred');
         }
-        
+
         // Update conversation history
         conversationHistory.push(
             { role: 'user', content: userMessage },
             { role: 'assistant', content: data.response }
         );
-        
+
         // Update conversation ID if returned
         if (data.conversation_id && !currentConversationId) {
             currentConversationId = data.conversation_id;
             loadConversations();
         }
-        
+
         return {
             response: data.response,
             reasoning: data.reasoning,
             provider: data.provider
         };
-        
+
     } catch (error) {
         console.error('Error calling API:', error);
-        
+
         // Return fallback error message
         return {
             response: `I apologize, but I'm having trouble connecting to the server right now. Please make sure the backend server is running at ${API_BASE_URL}. Error: ${error.message}`,
@@ -719,34 +719,34 @@ let useWebSearch = true;
 // Handle sending message with streaming
 const sendMessage = async () => {
     const message = messageInput.value.trim();
-    
+
     if (!message) return;
-    
+
     // Check if user is authenticated
     if (!isAuthenticated()) {
         // Show auth modal
         showAuthModal();
         return;
     }
-    
+
     // Hide welcome screen on first message
     hideWelcomeScreen();
-    
+
     // Add user message
     const userMessage = createMessageElement(message, 'user');
     chatMessages.appendChild(userMessage);
-    
+
     // Clear input
     messageInput.value = '';
     autoResizeTextarea();
-    
+
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    
+
     // Create AI message element for streaming
     const aiMessageDiv = document.createElement('div');
     aiMessageDiv.className = 'message ai';
-    
+
     const aiAvatarDiv = document.createElement('div');
     aiAvatarDiv.className = 'message-avatar';
     aiAvatarDiv.innerHTML = `
@@ -756,23 +756,23 @@ const sendMessage = async () => {
             <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
     `;
-    
+
     const aiContentDiv = document.createElement('div');
     aiContentDiv.className = 'message-content';
-    
+
     const mainContent = document.createElement('div');
     mainContent.className = 'main-content';
     mainContent.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
-    
+
     aiContentDiv.appendChild(mainContent);
     aiMessageDiv.appendChild(aiAvatarDiv);
     aiMessageDiv.appendChild(aiContentDiv);
     chatMessages.appendChild(aiMessageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    
+
     // Disable send button
     sendButton.disabled = true;
-    
+
     try {
         if (useWebSearch) {
             // Use web search endpoint with LangChain/LangGraph
@@ -783,13 +783,13 @@ const sendMessage = async () => {
         }
     } catch (error) {
         console.warn('Streaming failed, falling back to non-streaming:', error);
-        
+
         // Fallback to non-streaming
         const result = await getAIResponse(message);
-        
+
         // Remove typing indicator and update content
         mainContent.innerHTML = formatText(result.response);
-        
+
         // Add reasoning if available
         if (result.reasoning) {
             const reasoningDiv = document.createElement('details');
@@ -797,19 +797,19 @@ const sendMessage = async () => {
             const reasoningSummary = document.createElement('summary');
             reasoningSummary.textContent = '🧠 Show Reasoning';
             reasoningDiv.appendChild(reasoningSummary);
-            
+
             const reasoningContent = document.createElement('div');
             reasoningContent.className = 'reasoning-content';
             reasoningContent.innerHTML = formatText(result.reasoning);
             reasoningDiv.appendChild(reasoningContent);
-            
+
             aiContentDiv.insertBefore(reasoningDiv, mainContent);
         }
     }
-    
+
     // Scroll to bottom
     chatMessages.scrollTop = chatMessages.scrollHeight;
-    
+
     // Enable send button
     sendButton.disabled = false;
     messageInput.focus();
@@ -845,8 +845,140 @@ const attachSuggestionListeners = () => {
     });
 };
 
-// Initialize
+// ==========================================
+// Sidebar Functionality
+// ==========================================
+const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const menuButton = document.getElementById('menuButton');
+const sidebarClose = document.getElementById('sidebarClose');
+
+const openSidebar = () => {
+    sidebar.classList.add('open');
+    sidebarOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+
+const closeSidebar = () => {
+    sidebar.classList.remove('open');
+    sidebarOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+};
+
+menuButton?.addEventListener('click', openSidebar);
+sidebarClose?.addEventListener('click', closeSidebar);
+sidebarOverlay?.addEventListener('click', closeSidebar);
+
+// Close sidebar with Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeSidebar();
+        closeSettingsModal();
+    }
+});
+
+// ==========================================
+// Settings Modal Functionality
+// ==========================================
+const settingsModal = document.getElementById('settingsModal');
+const settingsModalOverlay = document.getElementById('settingsModalOverlay');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsClose = document.getElementById('settingsClose');
+const darkModeToggle = document.getElementById('darkModeToggle');
+const webSearchToggle = document.getElementById('webSearchToggle');
+
+const openSettingsModal = () => {
+    settingsModal.classList.add('active');
+    closeSidebar(); // Close sidebar when opening settings
+
+    // Sync dark mode toggle with current theme
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    darkModeToggle.checked = currentTheme === 'dark';
+
+    // Sync web search toggle
+    webSearchToggle.checked = useWebSearch;
+};
+
+const closeSettingsModal = () => {
+    settingsModal.classList.remove('active');
+};
+
+settingsBtn?.addEventListener('click', openSettingsModal);
+settingsClose?.addEventListener('click', closeSettingsModal);
+settingsModalOverlay?.addEventListener('click', closeSettingsModal);
+
+// Dark mode toggle in settings
+darkModeToggle?.addEventListener('change', () => {
+    const newTheme = darkModeToggle.checked ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+});
+
+// Web search toggle in settings
+webSearchToggle?.addEventListener('change', () => {
+    useWebSearch = webSearchToggle.checked;
+    localStorage.setItem('useWebSearch', useWebSearch);
+});
+
+// Load web search preference
+const loadWebSearchPreference = () => {
+    const savedPreference = localStorage.getItem('useWebSearch');
+    if (savedPreference !== null) {
+        useWebSearch = savedPreference === 'true';
+    }
+};
+
+// ==========================================
+// Enhance Button Functionality
+// ==========================================
+const enhanceButton = document.getElementById('enhanceButton');
+
+// Prompt enhancement templates
+const enhancePromptTemplates = [
+    "Please provide a detailed and comprehensive answer to: {prompt}",
+    "As a medical expert, explain in depth: {prompt}",
+    "Could you elaborate with examples and evidence: {prompt}",
+    "Please analyze this from multiple perspectives: {prompt}",
+    "Provide a thorough explanation with practical recommendations: {prompt}"
+];
+
+const enhancePrompt = () => {
+    const currentPrompt = messageInput.value.trim();
+
+    if (!currentPrompt) {
+        // Show helpful placeholder if empty
+        messageInput.placeholder = "Type a question first, then click + to enhance it...";
+        setTimeout(() => {
+            messageInput.placeholder = "Ask me anything about health and medicine...";
+        }, 2000);
+        return;
+    }
+
+    // Pick a random enhancement template
+    const template = enhancePromptTemplates[Math.floor(Math.random() * enhancePromptTemplates.length)];
+    const enhancedPrompt = template.replace('{prompt}', currentPrompt);
+
+    // Animate the enhancement
+    messageInput.style.transition = 'all 0.3s ease';
+    messageInput.style.backgroundColor = 'var(--accent-light)';
+
+    setTimeout(() => {
+        messageInput.value = enhancedPrompt;
+        autoResizeTextarea();
+        messageInput.style.backgroundColor = '';
+    }, 150);
+
+    // Focus the input
+    messageInput.focus();
+};
+
+enhanceButton?.addEventListener('click', enhancePrompt);
+
+// ==========================================
+// Initialize Everything
+// ==========================================
 initTheme();
+loadWebSearchPreference();
 attachSuggestionListeners();
 
 // Focus input on load
