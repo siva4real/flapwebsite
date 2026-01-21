@@ -15,7 +15,6 @@ const toggleTheme = () => {
 const chatMessages = document.getElementById('chatMessages');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
-const themeToggle = document.getElementById('themeToggle');
 const newChatBtn = document.getElementById('newChatBtn');
 const welcomeScreen = document.getElementById('welcomeScreen');
 
@@ -825,7 +824,7 @@ messageInput.addEventListener('keydown', (e) => {
     }
 });
 
-themeToggle.addEventListener('click', toggleTheme);
+// Theme toggle moved to settings modal
 
 newChatBtn.addEventListener('click', () => {
     // Start new conversation
@@ -850,24 +849,45 @@ const attachSuggestionListeners = () => {
 // ==========================================
 const sidebar = document.getElementById('sidebar');
 const sidebarOverlay = document.getElementById('sidebarOverlay');
-const menuButton = document.getElementById('menuButton');
+const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebarClose = document.getElementById('sidebarClose');
+const sidebarNewChat = document.getElementById('sidebarNewChat');
+const sidebarSettingsBtn = document.getElementById('sidebarSettingsBtn');
 
 const openSidebar = () => {
     sidebar.classList.add('open');
     sidebarOverlay.classList.add('active');
-    document.body.style.overflow = 'hidden';
 };
 
 const closeSidebar = () => {
     sidebar.classList.remove('open');
     sidebarOverlay.classList.remove('active');
-    document.body.style.overflow = '';
 };
 
-menuButton?.addEventListener('click', openSidebar);
+const toggleSidebar = () => {
+    if (sidebar.classList.contains('open')) {
+        closeSidebar();
+    } else {
+        openSidebar();
+    }
+};
+
+sidebarToggle?.addEventListener('click', toggleSidebar);
 sidebarClose?.addEventListener('click', closeSidebar);
 sidebarOverlay?.addEventListener('click', closeSidebar);
+
+// Sidebar bar quick actions
+sidebarNewChat?.addEventListener('click', () => {
+    startNewConversation();
+});
+
+sidebarSettingsBtn?.addEventListener('click', () => {
+    openSettingsModal();
+});
+
+// Mobile menu button
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+mobileMenuBtn?.addEventListener('click', openSidebar);
 
 // Close sidebar with Escape key
 document.addEventListener('keydown', (e) => {

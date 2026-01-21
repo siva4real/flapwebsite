@@ -46,23 +46,16 @@ function handleAuthStateChange(user) {
 
 // Update UI when user is signed in
 function updateUIForSignedIn() {
-    // Hide sign in button
-    const signInBtn = document.getElementById('headerSignInBtn');
-    if (signInBtn) signInBtn.style.display = 'none';
+    // Update settings account section
+    const signedOutState = document.getElementById('signedOutState');
+    const signedInState = document.getElementById('signedInState');
+    const settingsUserEmail = document.getElementById('settingsUserEmail');
     
-    // Show user profile
-    const userProfile = document.getElementById('userProfile');
-    if (userProfile) userProfile.style.display = 'flex';
-    
-    // Update email
-    const userEmail = document.getElementById('userEmail');
-    if (userEmail && currentUser) {
-        userEmail.textContent = currentUser.email;
+    if (signedOutState) signedOutState.style.display = 'none';
+    if (signedInState) signedInState.style.display = 'flex';
+    if (settingsUserEmail && currentUser) {
+        settingsUserEmail.textContent = currentUser.email;
     }
-    
-    // Show sidebar
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.style.display = 'flex';
     
     // Close auth modal if open
     closeAuthModal();
@@ -75,17 +68,12 @@ function updateUIForSignedIn() {
 
 // Update UI when user is signed out
 function updateUIForSignedOut() {
-    // Show sign in button
-    const signInBtn = document.getElementById('headerSignInBtn');
-    if (signInBtn) signInBtn.style.display = 'block';
+    // Update settings account section
+    const signedOutState = document.getElementById('signedOutState');
+    const signedInState = document.getElementById('signedInState');
     
-    // Hide user profile
-    const userProfile = document.getElementById('userProfile');
-    if (userProfile) userProfile.style.display = 'none';
-    
-    // Hide sidebar
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar) sidebar.style.display = 'none';
+    if (signedOutState) signedOutState.style.display = 'flex';
+    if (signedInState) signedInState.style.display = 'none';
 }
 
 // Show auth modal

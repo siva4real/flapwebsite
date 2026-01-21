@@ -163,21 +163,7 @@ function showWelcomeScreen() {
     }
 }
 
-// Toggle sidebar on mobile
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-    if (sidebar.classList.contains('open')) {
-        sidebar.classList.remove('open');
-        sidebarOverlay?.classList.remove('active');
-        document.body.style.overflow = '';
-    } else {
-        sidebar.classList.add('open');
-        sidebarOverlay?.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-}
+// Toggle sidebar function is now defined in script.js
 
 // Initialize chat history
 function initializeChatHistory() {

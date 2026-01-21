@@ -108,8 +108,16 @@ function setupAuthUI() {
         }
     });
 
-    // Logout Button
-    document.getElementById('logoutButton')?.addEventListener('click', async () => {
+    // Settings Sign In Button
+    document.getElementById('settingsSignInBtn')?.addEventListener('click', () => {
+        showAuthModal();
+        // Close settings modal when opening auth modal
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal) settingsModal.classList.remove('active');
+    });
+    
+    // Settings Sign Out Button
+    document.getElementById('settingsSignOutBtn')?.addEventListener('click', async () => {
         const result = await signOut();
         if (!result.success) {
             console.error('Logout error:', result.error);
