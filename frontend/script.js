@@ -872,9 +872,17 @@ const toggleSidebar = () => {
     }
 };
 
+const newConversationBtn = document.getElementById('newConversationBtn');
+
 sidebarToggle?.addEventListener('click', toggleSidebar);
 sidebarClose?.addEventListener('click', closeSidebar);
 sidebarOverlay?.addEventListener('click', closeSidebar);
+
+// Sidebar footer new conversation button
+newConversationBtn?.addEventListener('click', () => {
+    startNewConversation();
+    closeSidebar();
+});
 
 // Sidebar bar quick actions
 sidebarNewChat?.addEventListener('click', () => {
@@ -949,50 +957,51 @@ const loadWebSearchPreference = () => {
 };
 
 // ==========================================
-// Enhance Button Functionality
+// Mode Selector Dropdown
 // ==========================================
-const enhanceButton = document.getElementById('enhanceButton');
+const modeSelector = document.getElementById('modeSelector');
+const modeSelectorToggle = document.getElementById('modeSelectorToggle');
+const modeDropdown = document.getElementById('modeDropdown');
+const modeLabel = document.getElementById('modeLabel');
 
-// Prompt enhancement templates
-const enhancePromptTemplates = [
-    "Please provide a detailed and comprehensive answer to: {prompt}",
-    "As a medical expert, explain in depth: {prompt}",
-    "Could you elaborate with examples and evidence: {prompt}",
-    "Please analyze this from multiple perspectives: {prompt}",
-    "Provide a thorough explanation with practical recommendations: {prompt}"
-];
+let currentMode = 'auto';
 
-const enhancePrompt = () => {
-    const currentPrompt = messageInput.value.trim();
-
-    if (!currentPrompt) {
-        // Show helpful placeholder if empty
-        messageInput.placeholder = "Type a question first, then click + to enhance it...";
-        setTimeout(() => {
-            messageInput.placeholder = "Ask me anything about health and medicine...";
-        }, 2000);
-        return;
-    }
-
-    // Pick a random enhancement template
-    const template = enhancePromptTemplates[Math.floor(Math.random() * enhancePromptTemplates.length)];
-    const enhancedPrompt = template.replace('{prompt}', currentPrompt);
-
-    // Animate the enhancement
-    messageInput.style.transition = 'all 0.3s ease';
-    messageInput.style.backgroundColor = 'var(--accent-light)';
-
-    setTimeout(() => {
-        messageInput.value = enhancedPrompt;
-        autoResizeTextarea();
-        messageInput.style.backgroundColor = '';
-    }, 150);
-
-    // Focus the input
-    messageInput.focus();
+const toggleModeDropdown = () => {
+    modeSelector.classList.toggle('open');
 };
 
-enhanceButton?.addEventListener('click', enhancePrompt);
+const selectMode = (mode, label) => {
+    currentMode = mode;
+    modeLabel.textContent = label;
+
+    // Update active state
+    document.querySelectorAll('.mode-option').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.mode === mode);
+    });
+
+    modeSelector.classList.remove('open');
+};
+
+modeSelectorToggle?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleModeDropdown();
+});
+
+modeDropdown?.addEventListener('click', (e) => {
+    const option = e.target.closest('.mode-option');
+    if (option) {
+        const mode = option.dataset.mode;
+        const label = option.querySelector('.mode-option-name').textContent;
+        selectMode(mode, label);
+    }
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', (e) => {
+    if (!modeSelector?.contains(e.target)) {
+        modeSelector?.classList.remove('open');
+    }
+});
 
 // ==========================================
 // Initialize Everything

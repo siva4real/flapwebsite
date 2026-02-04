@@ -486,7 +486,7 @@ body::before {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 64px;
+    height: 56px;
 }
 
 /* Mobile Menu Button */
@@ -632,42 +632,43 @@ body::before {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: var(--space-md);
+    padding: var(--space-lg);
     text-align: center;
     width: 100%;
     height: 100%;
-    gap: var(--space-sm);
+    gap: var(--space-md);
 }
 
 .welcome-icon {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
     background: var(--accent-gradient);
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: var(--accent-glow);
+    box-shadow: var(--shadow-glow);
     flex-shrink: 0;
 }
 
 .welcome-icon svg {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     color: #ffffff;
 }
 
 .welcome-title {
-    font-size: 28px;
-    font-weight: 700;
+    font-size: 24px;
+    font-weight: 600;
     letter-spacing: -0.02em;
     color: var(--text-primary);
+    line-height: 1.2;
 }
 
 .welcome-subtitle {
-    font-size: 15px;
-    color: var(--text-secondary);
-    max-width: 450px;
+    font-size: 14px;
+    color: var(--text-tertiary);
+    max-width: 380px;
     line-height: 1.5;
 }
 
@@ -1130,7 +1131,7 @@ body::before {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--border);
-    padding: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
 }
 
 .input-wrapper {
@@ -1152,56 +1153,104 @@ body::before {
     box-shadow: var(--shadow-md), 0 0 0 3px var(--accent-light);
 }
 
-/* Enhance Button (Plus sign) */
-.enhance-button {
-    width: 36px;
-    height: 36px;
+/* Mode Selector Dropdown */
+.mode-selector {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.mode-selector-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
     border: 1px solid var(--border);
     background: transparent;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all var(--transition-fast);
-    color: var(--text-tertiary);
-    flex-shrink: 0;
-    position: relative;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
 }
 
-.enhance-button:hover {
+.mode-selector-toggle:hover {
     background: var(--accent-light);
     border-color: var(--accent);
     color: var(--accent);
 }
 
-.enhance-button svg {
-    width: 18px;
-    height: 18px;
+.mode-chevron {
+    width: 14px;
+    height: 14px;
+    transition: transform var(--transition-fast);
 }
 
-/* Enhance Tooltip */
-.enhance-button::after {
-    content: 'Enhance prompt';
+.mode-selector.open .mode-chevron {
+    transform: rotate(180deg);
+}
+
+.mode-dropdown {
     position: absolute;
     bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    padding: 6px 12px;
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    white-space: nowrap;
+    left: 0;
+    min-width: 200px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
     opacity: 0;
     visibility: hidden;
+    transform: translateY(8px);
     transition: all var(--transition-fast);
-    box-shadow: var(--shadow-md);
+    z-index: 50;
+    padding: var(--space-xs);
 }
 
-.enhance-button:hover::after {
+.mode-selector.open .mode-dropdown {
     opacity: 1;
     visibility: visible;
+    transform: translateY(0);
+}
+
+.mode-option {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+    font-family: var(--font-sans);
+}
+
+.mode-option:hover {
+    background: var(--accent-light);
+}
+
+.mode-option.active {
+    background: var(--accent-light);
+}
+
+.mode-option-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.mode-option.active .mode-option-name {
+    color: var(--accent);
+}
+
+.mode-option-desc {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 1px;
 }
 
 .message-input {
@@ -1256,12 +1305,13 @@ body::before {
 
 .disclaimer {
     text-align: center;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-tertiary);
-    margin-top: var(--space-md);
+    margin-top: var(--space-sm);
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
+    opacity: 0.7;
 }
 
 /* ==========================================
@@ -1490,30 +1540,20 @@ body::before {
     }
     
     .header-content {
-        height: 56px;
+        height: 48px;
     }
 
     .logo-text {
-        font-size: 18px;
+        font-size: 17px;
     }
 
     .welcome-title {
-        font-size: 28px;
+        font-size: 22px;
     }
 
     .welcome-subtitle {
-        font-size: 15px;
+        font-size: 14px;
         padding: 0 var(--space-md);
-    }
-
-    .welcome-icon {
-        width: 64px;
-        height: 64px;
-    }
-
-    .welcome-icon svg {
-        width: 32px;
-        height: 32px;
     }
 
     .message-content {
@@ -1536,21 +1576,11 @@ body::before {
 
 @media (max-width: 480px) {
     .welcome-title {
-        font-size: 24px;
+        font-size: 20px;
     }
-    
+
     .welcome-subtitle {
-        font-size: 14px;
-    }
-
-    .welcome-icon {
-        width: 56px;
-        height: 56px;
-    }
-
-    .welcome-icon svg {
-        width: 28px;
-        height: 28px;
+        font-size: 13px;
     }
 
     .message-content {
@@ -1571,9 +1601,9 @@ body::before {
         padding: var(--space-xs) var(--space-sm);
     }
     
-    .enhance-button {
-        width: 32px;
-        height: 32px;
+    .mode-selector-toggle {
+        padding: 4px 8px;
+        font-size: 12px;
     }
     
     .send-button {
