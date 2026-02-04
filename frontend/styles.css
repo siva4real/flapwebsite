@@ -246,13 +246,17 @@ body::before {
     top: 0;
     height: 100vh;
     z-index: 200;
-    transform: translateX(-100%);
-    transition: transform var(--transition-slow);
+    transform: translateX(calc(-100% - 56px));
+    transition: transform var(--transition-slow), visibility var(--transition-slow);
     box-shadow: var(--shadow-xl);
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .sidebar.open {
     transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
 }
 
 /* Sidebar overlay */
@@ -456,7 +460,7 @@ body::before {
 /* ==========================================
    Main Content Area
    ========================================== */
-.main-content {
+.app-content {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -1528,8 +1532,9 @@ body::before {
         display: none;
     }
     
-    .main-content {
+    .app-content {
         margin-left: 0;
+        width: 100%;
     }
     
     /* Mobile sidebar becomes full overlay */
@@ -1537,6 +1542,7 @@ body::before {
         left: 0;
         width: 100%;
         max-width: 300px;
+        transform: translateX(-100%);
     }
     
     .header-content {
