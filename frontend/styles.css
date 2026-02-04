@@ -407,6 +407,18 @@ body {
     flex-shrink: 0;
 }
 
+/* Hide header logo until chatting */
+.header .logo {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-base);
+}
+
+.header.chatting .logo {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .header-content {
     max-width: 900px;
     margin: 0 auto;
@@ -911,11 +923,11 @@ body {
 }
 
 /* ==========================================
-   Input Area (Claude/Grok style)
+   Input Area
    ========================================== */
 .input-container {
     background: var(--bg-primary);
-    padding: 12px 20px 16px;
+    padding: 0 20px 16px;
     flex-shrink: 0;
 }
 
@@ -923,14 +935,14 @@ body {
     max-width: 768px;
     margin: 0 auto;
     display: flex;
-    align-items: flex-end;
-    gap: 8px;
+    flex-direction: column;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    padding: 8px 8px 8px 4px;
+    border-radius: var(--radius-lg);
+    padding: 0;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     box-shadow: var(--shadow-sm);
+    overflow: hidden;
 }
 
 .input-wrapper:focus-within {
@@ -938,19 +950,43 @@ body {
     box-shadow: 0 0 0 3px var(--accent-light);
 }
 
-/* Mode Selector (inside input, like Claude model picker) */
+.message-input {
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-family: var(--font-sans);
+    resize: none;
+    outline: none;
+    max-height: 180px;
+    min-height: 24px;
+    line-height: 1.5;
+    padding: 14px 16px 0 16px;
+    width: 100%;
+}
+
+.message-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+/* Controls row: mode selector left, send button right */
+.input-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px 10px;
+}
+
+/* Mode Selector */
 .mode-selector {
     position: relative;
-    flex-shrink: 0;
-    align-self: flex-end;
-    margin-bottom: 4px;
 }
 
 .mode-selector-toggle {
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 5px 10px;
+    gap: 4px;
+    padding: 5px 12px;
     border: none;
     background: var(--bg-tertiary);
     border-radius: var(--radius-full);
@@ -982,7 +1018,7 @@ body {
     position: absolute;
     bottom: calc(100% + 8px);
     left: 0;
-    min-width: 190px;
+    min-width: 200px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
@@ -1039,31 +1075,14 @@ body {
     margin-top: 1px;
 }
 
-.message-input {
-    flex: 1;
-    border: none;
-    background: transparent;
-    color: var(--text-primary);
-    font-size: 15px;
-    font-family: var(--font-sans);
-    resize: none;
-    outline: none;
-    max-height: 200px;
-    line-height: 1.5;
-    padding: 6px 8px;
-}
-
-.message-input::placeholder {
-    color: var(--text-tertiary);
-}
-
+/* Send Button */
 .send-button {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border: none;
-    background: var(--accent-gradient);
+    background: var(--accent);
     color: #ffffff;
-    border-radius: 50%;
+    border-radius: var(--radius-sm);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -1073,12 +1092,11 @@ body {
 }
 
 .send-button:hover:not(:disabled) {
-    transform: scale(1.05);
-    box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+    background: var(--accent-hover);
 }
 
 .send-button:disabled {
-    opacity: 0.4;
+    opacity: 0.3;
     cursor: not-allowed;
 }
 
@@ -1095,7 +1113,7 @@ body {
     max-width: 768px;
     margin-left: auto;
     margin-right: auto;
-    opacity: 0.6;
+    opacity: 0.5;
 }
 
 /* ==========================================
@@ -1351,11 +1369,7 @@ body {
     }
 
     .input-container {
-        padding: 8px 12px 12px;
-    }
-
-    .input-wrapper {
-        border-radius: var(--radius-lg);
+        padding: 0 12px 12px;
     }
 
     .message.user .message-content {
@@ -1385,23 +1399,22 @@ body {
         max-height: calc(100vh - 24px);
     }
 
-    .input-wrapper {
-        padding: 6px;
+    .message-input {
+        padding: 12px 14px 0 14px;
+    }
+
+    .input-controls {
+        padding: 6px 8px 8px;
     }
 
     .mode-selector-toggle {
-        padding: 4px 8px;
+        padding: 4px 10px;
         font-size: 11px;
     }
 
     .send-button {
-        width: 32px;
-        height: 32px;
-    }
-
-    .send-button svg {
-        width: 14px;
-        height: 14px;
+        width: 30px;
+        height: 30px;
     }
 
     .message-input {

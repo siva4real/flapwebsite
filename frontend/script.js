@@ -304,11 +304,12 @@ const API_BASE_URL = 'https://flapwebsite.onrender.com';
 let conversationHistory = [];
 let currentConversationId = null;
 
-// Hide welcome screen
+// Hide welcome screen and show header logo
 const hideWelcomeScreen = () => {
     if (welcomeScreen) {
         welcomeScreen.style.display = 'none';
     }
+    document.querySelector('.header')?.classList.add('chatting');
 };
 
 // Call backend API with streaming

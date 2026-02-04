@@ -81,6 +81,7 @@ async function loadConversation(conversationId) {
 
         // Clear chat and display messages
         clearChat();
+        document.querySelector('.header')?.classList.add('chatting');
         data.messages.forEach(msg => {
             const messageElement = createMessageElement(msg.content, msg.role === 'user' ? 'user' : 'ai');
             chatMessages.appendChild(messageElement);
@@ -155,12 +156,13 @@ function clearChat() {
     messages.forEach(msg => msg.remove());
 }
 
-// Show welcome screen
+// Show welcome screen and hide header logo
 function showWelcomeScreen() {
     const welcomeScreen = document.getElementById('welcomeScreen');
     if (welcomeScreen) {
         welcomeScreen.style.display = 'flex';
     }
+    document.querySelector('.header')?.classList.remove('chatting');
 }
 
 // Toggle sidebar function is now defined in script.js

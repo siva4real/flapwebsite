@@ -258,46 +258,48 @@
         <!-- Input Area -->
         <footer class="input-container">
             <div class="input-wrapper">
-                <!-- Mode Selector Dropdown -->
-                <div class="mode-selector" id="modeSelector">
-                    <button class="mode-selector-toggle" id="modeSelectorToggle" aria-label="Select mode">
-                        <span class="mode-label" id="modeLabel">Auto</span>
-                        <svg class="mode-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                    </button>
-                    <div class="mode-dropdown" id="modeDropdown">
-                        <button class="mode-option active" data-mode="auto">
-                            <span class="mode-option-name">Auto</span>
-                            <span class="mode-option-desc">Smart routing</span>
-                        </button>
-                        <button class="mode-option" data-mode="deep-research">
-                            <span class="mode-option-name">Deep Research</span>
-                            <span class="mode-option-desc">Thorough analysis</span>
-                        </button>
-                        <button class="mode-option" data-mode="innovate">
-                            <span class="mode-option-name">Innovate</span>
-                            <span class="mode-option-desc">Creative solutions</span>
-                        </button>
-                        <button class="mode-option" data-mode="manual">
-                            <span class="mode-option-name">Manual Controls</span>
-                            <span class="mode-option-desc">Full control</span>
-                        </button>
-                    </div>
-                </div>
-                <textarea 
-                    id="messageInput" 
-                    class="message-input" 
-                    placeholder="Ask me anything about health and medicine..."
+                <textarea
+                    id="messageInput"
+                    class="message-input"
+                    placeholder="Ask anything about health and medicine..."
                     rows="1"
                 ></textarea>
-                <button class="send-button" id="sendButton" aria-label="Send message">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
+                <div class="input-controls">
+                    <!-- Mode Selector Dropdown -->
+                    <div class="mode-selector" id="modeSelector">
+                        <button class="mode-selector-toggle" id="modeSelectorToggle" aria-label="Select mode">
+                            <span class="mode-label" id="modeLabel">Auto</span>
+                            <svg class="mode-chevron" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                        <div class="mode-dropdown" id="modeDropdown">
+                            <button class="mode-option active" data-mode="auto">
+                                <span class="mode-option-name">Auto</span>
+                                <span class="mode-option-desc">Smart routing</span>
+                            </button>
+                            <button class="mode-option" data-mode="deep-research">
+                                <span class="mode-option-name">Deep Research</span>
+                                <span class="mode-option-desc">Thorough analysis</span>
+                            </button>
+                            <button class="mode-option" data-mode="innovate">
+                                <span class="mode-option-name">Innovate</span>
+                                <span class="mode-option-desc">Creative solutions</span>
+                            </button>
+                            <button class="mode-option" data-mode="manual">
+                                <span class="mode-option-name">Manual Controls</span>
+                                <span class="mode-option-desc">Full control</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button class="send-button" id="sendButton" aria-label="Send message">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
-            <p class="disclaimer">Flap AI provides general information only. Always consult a healthcare professional for medical advice.</p>
+            <p class="disclaimer">Flap AI provides general information only. Always consult a healthcare professional.</p>
         </footer>
         </div>
     </div>
