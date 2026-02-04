@@ -218,25 +218,11 @@ const createMessageElement = (content, type = 'user', reasoning = null, sources 
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${type}`;
 
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'message-avatar';
-
-    if (type === 'user') {
-        avatarDiv.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        `;
-    } else {
-        avatarDiv.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        `;
-    }
+    // Add text label instead of avatar (Claude-style)
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'message-label';
+    labelDiv.textContent = type === 'user' ? 'You' : 'Flap AI';
+    messageDiv.appendChild(labelDiv);
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -246,7 +232,7 @@ const createMessageElement = (content, type = 'user', reasoning = null, sources 
         const reasoningDiv = document.createElement('details');
         reasoningDiv.className = 'reasoning-section';
         const reasoningSummary = document.createElement('summary');
-        reasoningSummary.textContent = '🧠 Show Reasoning';
+        reasoningSummary.textContent = 'Show Reasoning';
         reasoningDiv.appendChild(reasoningSummary);
 
         const reasoningContent = document.createElement('div');
@@ -278,7 +264,6 @@ const createMessageElement = (content, type = 'user', reasoning = null, sources 
         contentDiv.appendChild(sourcesContainer.firstElementChild);
     }
 
-    messageDiv.appendChild(avatarDiv);
     messageDiv.appendChild(contentDiv);
 
     return messageDiv;
@@ -290,15 +275,9 @@ const createTypingIndicator = () => {
     messageDiv.className = 'message ai';
     messageDiv.id = 'typing-indicator';
 
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'message-avatar';
-    avatarDiv.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-    `;
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'message-label';
+    labelDiv.textContent = 'Flap AI';
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'message-content';
@@ -312,7 +291,7 @@ const createTypingIndicator = () => {
     `;
 
     contentDiv.appendChild(typingDiv);
-    messageDiv.appendChild(avatarDiv);
+    messageDiv.appendChild(labelDiv);
     messageDiv.appendChild(contentDiv);
 
     return messageDiv;
@@ -462,7 +441,7 @@ const getAIResponseStreaming = async (userMessage, messageElement) => {
             const reasoningDiv = document.createElement('details');
             reasoningDiv.className = 'reasoning-section';
             const reasoningSummary = document.createElement('summary');
-            reasoningSummary.textContent = '🧠 Show Reasoning';
+            reasoningSummary.textContent = 'Show Reasoning';
             reasoningDiv.appendChild(reasoningSummary);
 
             const reasoningContent = document.createElement('div');
@@ -746,15 +725,9 @@ const sendMessage = async () => {
     const aiMessageDiv = document.createElement('div');
     aiMessageDiv.className = 'message ai';
 
-    const aiAvatarDiv = document.createElement('div');
-    aiAvatarDiv.className = 'message-avatar';
-    aiAvatarDiv.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-    `;
+    const aiLabel = document.createElement('div');
+    aiLabel.className = 'message-label';
+    aiLabel.textContent = 'Flap AI';
 
     const aiContentDiv = document.createElement('div');
     aiContentDiv.className = 'message-content';
@@ -764,7 +737,7 @@ const sendMessage = async () => {
     mainContent.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
 
     aiContentDiv.appendChild(mainContent);
-    aiMessageDiv.appendChild(aiAvatarDiv);
+    aiMessageDiv.appendChild(aiLabel);
     aiMessageDiv.appendChild(aiContentDiv);
     chatMessages.appendChild(aiMessageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -794,7 +767,7 @@ const sendMessage = async () => {
             const reasoningDiv = document.createElement('details');
             reasoningDiv.className = 'reasoning-section';
             const reasoningSummary = document.createElement('summary');
-            reasoningSummary.textContent = '🧠 Show Reasoning';
+            reasoningSummary.textContent = 'Show Reasoning';
             reasoningDiv.appendChild(reasoningSummary);
 
             const reasoningContent = document.createElement('div');
